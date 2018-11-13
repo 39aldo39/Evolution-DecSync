@@ -1,0 +1,3 @@
+[submodule "libdecsync"]
+	path = subprojects/libdecsync
+	url = https://github.com/39aldo39/libdecsync-vala

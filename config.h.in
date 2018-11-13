@@ -1,0 +1,8 @@
+/* Name of the package */
+#define PACKAGE "@PROJECT_NAME@"
+
+/* Package name for gettext */
+#define GETTEXT_PACKAGE "@PROJECT_NAME@"
+
+/* ESource install directory */
+#define E_SOURCE_DIR "@E_SOURCE_DIR@"
