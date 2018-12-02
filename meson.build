@@ -1,7 +1,7 @@
 project('evolution-decsync', ['vala', 'c'],
-  version: '1.0',
+  version: '1.0.0',
   meson_version: '>= 0.44.1',
-  license: 'GPL3+',
+  license: 'LGPL',
   default_options: ['prefix=/usr']
 )
 
