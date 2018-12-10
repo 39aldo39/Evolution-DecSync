@@ -5,9 +5,9 @@ DecSync for Evolution is an [Evolution](https://wiki.gnome.org/Apps/Evolution) p
 
 ## Build from source
 
-### Ubuntu
-
 Install dependencies:
+
+### Ubuntu
 
 ```
 sudo apt install \
@@ -21,6 +21,20 @@ sudo apt install \
 	libedata-book1.2-dev \
 	libedata-cal1.2-dev \
 	evolution-dev
+```
+
+### Arch Linux
+
+```
+sudo pacman -S \
+	cmake \
+	meson \
+	ninja \
+	vala \
+	libgee \
+	json-glib \
+	evolution-data-server \
+	evolution
 ```
 
 ### Build
