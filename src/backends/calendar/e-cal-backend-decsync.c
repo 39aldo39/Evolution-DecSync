@@ -604,7 +604,7 @@ check_dup_uid (ECalBackendDecsync *cbfile,
 		uid,
 		rid ? rid : ""));
 
-	new_uid = e_util_generate_uid ();
+	new_uid = e_cal_component_gen_uid ();
 	e_cal_component_set_uid (comp, new_uid);
 
 	/* FIXME: I think we need to reset the SEQUENCE property and reset the
@@ -2020,7 +2020,7 @@ e_cal_backend_decsync_create_objects_with_decsync (ECalBackendSync *backend,
 		if (!comp_uid) {
 			gchar *new_uid;
 
-			new_uid = e_util_generate_uid ();
+			new_uid = e_cal_component_gen_uid ();
 			if (!new_uid) {
 				g_slist_free_full (icalcomps, (GDestroyNotify) icalcomponent_free);
 				g_rec_mutex_unlock (&priv->idle_save_rmutex);
@@ -2416,7 +2416,7 @@ e_cal_backend_decsync_modify_objects_with_decsync (ECalBackendSync *backend,
 			if (split_icalcomp) {
 				gchar *new_uid;
 
-				new_uid = e_util_generate_uid ();
+				new_uid = e_cal_component_gen_uid ();
 				icalcomponent_set_uid (split_icalcomp, new_uid);
 				g_free (new_uid);
 
@@ -3178,7 +3178,7 @@ e_cal_backend_decsync_receive_objects_with_decsync (ECalBackendSync *backend,
 
 				gchar *new_uid = NULL;
 
-				new_uid = e_util_generate_uid ();
+				new_uid = e_cal_component_gen_uid ();
 				icalcomponent_set_uid (subcomp, new_uid);
 				g_free (new_uid);
 			} else {

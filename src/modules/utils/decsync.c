@@ -445,12 +445,17 @@ void
 config_decsync_add_source_file ()
 {
 	const gchar *to_dir;
+	gchar *from_file_str, *to_file_str;
 	GFile *from_file, *to_file;
 
-	from_file = g_file_new_build_filename (E_SOURCE_DIR, "decsync.source", NULL);
+	from_file_str = g_build_filename (E_SOURCE_DIR, "decsync.source", NULL);
+	from_file = g_file_new_for_path (from_file_str);
+	g_free (from_file_str);
 
 	to_dir = e_server_side_source_get_user_dir ();
-	to_file = g_file_new_build_filename (to_dir, "decsync.source", NULL);
+	to_file_str = g_build_filename (to_dir, "decsync.source", NULL);
+	to_file = g_file_new_for_path (to_file_str);
+	g_free (to_file_str);
 
 	g_file_copy (from_file, to_file, G_FILE_COPY_NONE, NULL, NULL, NULL, NULL);
 

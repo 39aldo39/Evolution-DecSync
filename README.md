@@ -12,12 +12,14 @@ Install dependencies:
 ```
 sudo apt install \
 	build-essential \
+	git \
 	meson \
 	ninja-build \
 	valac \
 	pkg-config \
 	libgee-0.8-dev \
 	libjson-glib-dev \
+	libebook1.2-dev \
 	libedata-book1.2-dev \
 	libedata-cal1.2-dev \
 	evolution-dev
