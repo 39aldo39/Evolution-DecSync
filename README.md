@@ -23,6 +23,19 @@ sudo apt install \
 	evolution-dev
 ```
 
+### Fedora
+```
+sudo dnf install \
+	git \
+	gcc \
+	meson \
+	vala \
+	libgee-devel \
+	json-glib-devel \
+	evolution-data-server-devel \
+	evolution-devel
+```
+
 ### Arch Linux
 
 ```
@@ -42,7 +55,8 @@ sudo pacman -S \
 ```
 git clone --recursive https://github.com/39aldo39/Evolution-DecSync
 cd ./Evolution-DecSync
-meson builddir
-sudo ninja -C builddir install
+meson build
+sudo ninja -C build install
+# Restart the computer
 # DecSync is now a backend in Evolution for contacts and calendars
 ```
