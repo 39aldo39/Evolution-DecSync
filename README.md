@@ -62,3 +62,7 @@ sudo ninja -C build install
 # Restart the computer
 # DecSync is now a backend in Evolution for contacts and calendars
 ```
+
+Bitcoin donation
+----------------
+[`1JWYoV2MZyu8LYYHCur9jUJgGqE98m566z`](bitcoin:1JWYoV2MZyu8LYYHCur9jUJgGqE98m566z)
