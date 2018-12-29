@@ -3,7 +3,8 @@ DecSync for Evolution
 
 DecSync for Evolution is an [Evolution](https://wiki.gnome.org/Apps/Evolution) plugin which synchronizes contacts and calendars using [DecSync](https://github.com/39aldo39/DecSync). To start synchronizing, all you have to do is synchronize the DecSync directory (by default `~/.local/share/decsync`), using for example [Syncthing](https://syncthing.net).
 
-## Build from source
+Build from source
+-----------------
 
 Install dependencies:
 
@@ -63,6 +64,11 @@ sudo ninja -C build install
 # DecSync is now a backend in Evolution for contacts and calendars
 ```
 
-Bitcoin donation
-----------------
+Donations
+---------
+
+### PayPal
+[![](https://www.paypalobjects.com/en_US/i/btn/btn_donateCC_LG.gif)](https://www.paypal.com/cgi-bin/webscr?cmd=_s-xclick&hosted_button_id=4V96AFD3S4TPJ)
+
+### Bitcoin
 [`1JWYoV2MZyu8LYYHCur9jUJgGqE98m566z`](bitcoin:1JWYoV2MZyu8LYYHCur9jUJgGqE98m566z)
