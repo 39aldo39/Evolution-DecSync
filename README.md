@@ -60,9 +60,23 @@ git clone --recursive https://github.com/39aldo39/Evolution-DecSync
 cd ./Evolution-DecSync
 meson build
 sudo ninja -C build install
+```
 # Restart the computer
 # DecSync is now a backend in Evolution for contacts and calendars
-```
+
+### Further steps
+
+Once building is complete, enable syncing with evolution by:
+
+1. Restart your computer
+2. Open Evolution
+3. Click `edit` -> `accounts`
+4. In the window that opens, you can use `add` on the right-hand side to add an `Address Book`.
+5. For type, select `DecSync`; eventually check `use as default address book`. If applicable, select the location of your DecSync folder.
+6. A new address book will appear. Right-click it and select 'Refresh' to instantly show your contacts.
+
+All done!
+
 
 Donations
 ---------
