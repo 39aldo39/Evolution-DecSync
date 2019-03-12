@@ -3,12 +3,21 @@ DecSync for Evolution
 
 DecSync for Evolution is an [Evolution](https://wiki.gnome.org/Apps/Evolution) plugin which synchronizes contacts and calendars using [DecSync](https://github.com/39aldo39/DecSync). To start synchronizing, all you have to do is synchronize the DecSync directory (by default `~/.local/share/decsync`), using for example [Syncthing](https://syncthing.net).
 
+Installation
+------------
+
+### Debian/Ubuntu
+For Debian/Ubuntu, there is a `.deb` package available at the [releases page](https://github.com/39aldo39/Evolution-DecSync/releases).
+
+### Arch Linux
+For Arch Linux, there is a [AUR package](https://aur.archlinux.org/packages/evolution-decsync) available, created by vasket.
+
 Build from source
 -----------------
 
 Install dependencies:
 
-### Ubuntu
+### Debian/Ubuntu
 
 ```
 sudo apt install \
