@@ -126,14 +126,20 @@ class ResourcesListener : OnSubdirEntryUpdateListener<Extra> {
 	}
 }
 
-public Decsync<Extra> getDecsync(string decsyncDir, string syncType, string collection, string ownAppId,
+public bool getDecsync(out Decsync<Extra> decsync,
+    string decsyncDir, string syncType, string collection, string ownAppId,
     owned DeleteCollectionFunc deleteCollection, owned UpdateColorFunc? updateColor,
     owned UpdateResourceFunc updateResource, owned RemoveResourceFunc removeResource)
 {
 	var listeners = new Gee.ArrayList<OnEntryUpdateListener>();
 	listeners.add(new InfoListener((owned)deleteCollection, (owned)updateColor));
 	listeners.add(new ResourcesListener((owned)updateResource, (owned)removeResource));
-	return new Decsync<Extra>(getDecsyncSubdir(decsyncDir, syncType, collection), ownAppId, listeners);
+	try {
+		decsync = new Decsync<Extra>(getDecsyncSubdir(decsyncDir, syncType, collection), ownAppId, listeners);
+		return true;
+	} catch (DecsyncError e) {
+		return false;
+	}
 }
 
 public void writeUpdate(Decsync decsync, string uid, string? resource)

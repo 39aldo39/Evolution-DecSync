@@ -3603,8 +3603,8 @@ removeEvent (const gchar *uid, Extra *extra, void *user_data)
 	g_slist_free (ids);
 }
 
-static Decsync *
-getDecsyncFromSource (ESource *source)
+static gboolean
+getDecsyncFromSource (Decsync **decsync, ESource *source)
 {
 	ESourceDecsync *decsync_extension;
 	const gchar *extension_name, *decsync_dir, *collection, *appid;
@@ -3614,7 +3614,8 @@ getDecsyncFromSource (ESource *source)
 	decsync_dir = e_source_decsync_get_decsync_dir (decsync_extension);
 	collection = e_source_decsync_get_collection (decsync_extension);
 	appid = e_source_decsync_get_appid (decsync_extension);
-	return getDecsync(decsync_dir, "calendars", collection, appid,
+	return getDecsync(decsync,
+		decsync_dir, "calendars", collection, appid,
 		deleteCal, NULL, NULL,
 		updateColor, NULL, NULL,
 		updateEvent, NULL, NULL,
@@ -3676,9 +3677,7 @@ cal_backend_decsync_initable_init (GInitable *initable,
 	source = e_backend_get_source (E_BACKEND (initable));
 	priv = E_CAL_BACKEND_DECSYNC_GET_PRIVATE (initable);
 
-	priv->decsync = getDecsyncFromSource (source);
-
-	return TRUE;
+	return getDecsyncFromSource (&priv->decsync, source);
 }
 
 static void

@@ -76,11 +76,14 @@ config_decsync_update_color (Context *context)
 static void
 config_decsync_update_combo_box (Context *context)
 {
+	ESourceConfig *config;
 	ESourceExtension *extension;
-	const gchar *extension_name, *decsync_dir, *collection;
+	const gchar *extension_name, *decsync_dir, *collection, *title;
 	gchar **collections;
-	gchar *name;
+	gchar *name, *error;
 	int ii, length;
+	GtkWidget *dialog;
+	gpointer parent;
 
 	extension_name = E_SOURCE_EXTENSION_DECSYNC_BACKEND;
 	extension = e_source_get_extension (context->scratch_source, extension_name);
@@ -88,7 +91,22 @@ config_decsync_update_combo_box (Context *context)
 
 	gtk_combo_box_text_remove_all (context->collection_combo_box);
 
-	if (decsync_dir != NULL && *decsync_dir != '\0') {
+	error = checkDecsyncInfoWrapper (decsync_dir);
+	if (*error != '\0') {
+		config = e_source_config_backend_get_config (context->backend);
+		parent = gtk_widget_get_toplevel (GTK_WIDGET (config));
+		parent = gtk_widget_is_toplevel (parent) ? parent : NULL;
+		dialog = gtk_message_dialog_new (parent,
+			GTK_DIALOG_DESTROY_WITH_PARENT,
+			GTK_MESSAGE_WARNING,
+			GTK_BUTTONS_OK,
+			error);
+		title = _("DecSync");
+		gtk_window_set_title (GTK_WINDOW (dialog), title);
+
+		gtk_dialog_run (GTK_DIALOG (dialog));
+		gtk_widget_destroy (dialog);
+	} else if (decsync_dir != NULL && *decsync_dir != '\0') {
 		collections = listDecsyncCollectionsWrapper (decsync_dir, context->sync_type, &length);
 		for (ii = 0; ii < length; ii++) {
 			name = getInfo (decsync_dir, context->sync_type, collections[ii], "name", collections[ii]);

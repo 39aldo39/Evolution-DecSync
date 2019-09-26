@@ -2112,8 +2112,8 @@ removeContacts (const gchar *uid, Extra *extra, void *user_data)
 	e_book_backend_notify_remove (backend, uid);
 }
 
-static Decsync *
-getDecsyncFromSource (ESource *source)
+static gboolean
+getDecsyncFromSource (Decsync **decsync, ESource *source)
 {
 	ESourceDecsync *decsync_extension;
 	const gchar *extension_name, *decsync_dir, *collection, *appid;
@@ -2123,7 +2123,8 @@ getDecsyncFromSource (ESource *source)
 	decsync_dir = e_source_decsync_get_decsync_dir (decsync_extension);
 	collection = e_source_decsync_get_collection (decsync_extension);
 	appid = e_source_decsync_get_appid (decsync_extension);
-	return getDecsync(decsync_dir, "contacts", collection, appid,
+	return getDecsync(decsync,
+		decsync_dir, "contacts", collection, appid,
 		deleteBook, NULL, NULL,
 		NULL, NULL, NULL,
 		updateContacts, NULL, NULL,
@@ -2204,7 +2205,10 @@ book_backend_decsync_initable_init (GInitable *initable,
 
 	fullpath = g_build_filename (dirname, "contacts.db", NULL);
 
-	priv->decsync = getDecsyncFromSource (source);
+	success = getDecsyncFromSource (&priv->decsync, source);
+
+	if (!success)
+		goto exit;
 
 	/* If we already have a handle on this, it means there
 	 * was an old BDB migrated and no need to reopen it. */

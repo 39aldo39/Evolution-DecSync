@@ -16,6 +16,16 @@
  * along with this library; if not, see <http://www.gnu.org/licenses/>.
  */
 
+public string checkDecsyncInfoWrapper(string decsyncDir)
+{
+	try {
+		checkDecsyncInfo(decsyncDir);
+		return "";
+	} catch (DecsyncError e) {
+		return e.message;
+	}
+}
+
 public string getOwnAppId(bool random = false)
 {
 	int? id = null;
@@ -36,18 +46,22 @@ public string[] listDecsyncCollectionsWrapper(string decsyncDir, string syncType
 
 public string? getInfo(string decsyncDir, string syncType, string collection, string key, string? fallback)
 {
-	var dir = getDecsyncSubdir(decsyncDir, syncType, collection);
-	var jsonDeleted = Decsync.getStoredStaticValue(dir, {"info"}, stringToNode("deleted"));
-	var deleted = jsonDeleted != null && jsonDeleted.get_boolean();
-	if (deleted) {
-		return null;
+	try {
+		var dir = getDecsyncSubdir(decsyncDir, syncType, collection);
+		var jsonDeleted = Decsync.getStoredStaticValue(dir, {"info"}, stringToNode("deleted"));
+		var deleted = jsonDeleted != null && jsonDeleted.get_boolean();
+		if (deleted) {
+			return null;
+		}
+		var jsonValue = Decsync.getStoredStaticValue(dir, {"info"}, stringToNode(key));
+		string? value = null;
+		if (jsonValue != null) {
+			value = jsonValue.get_string();
+		}
+		return value ?? fallback;
+	} catch (DecsyncError e) {
+		return fallback;
 	}
-	var jsonValue = Decsync.getStoredStaticValue(dir, {"info"}, stringToNode(key));
-	string? value = null;
-	if (jsonValue != null) {
-		value = jsonValue.get_string();
-	}
-	return value ?? fallback;
 }
 
 public string createCollection(string decsyncDir, string syncType, string name)
@@ -65,7 +79,11 @@ public void setInfoEntry(string decsyncDir, string syncType, string collection, 
 	var listeners = new Gee.ArrayList<OnEntryUpdateListener>();
 	var key = stringToNode(keyString);
 	Json.Node value = stringToNode(valueString);
-	new Decsync<Unit>(getDecsyncSubdir(decsyncDir, syncType, collection), getOwnAppId(), listeners).setEntry({"info"}, key, value);
+	try {
+		new Decsync<Unit>(getDecsyncSubdir(decsyncDir, syncType, collection), getOwnAppId(), listeners).setEntry({"info"}, key, value);
+	} catch (DecsyncError e) {
+		Log.e("Could not write info\n" + e.message);
+	}
 }
 
 public void setDeleteEntry(string decsyncDir, string syncType, string collection, bool deleted)
@@ -73,5 +91,9 @@ public void setDeleteEntry(string decsyncDir, string syncType, string collection
 	var listeners = new Gee.ArrayList<OnEntryUpdateListener>();
 	var key = stringToNode("deleted");
 	Json.Node value = boolToNode(deleted);
-	new Decsync<Unit>(getDecsyncSubdir(decsyncDir, syncType, collection), getOwnAppId(), listeners).setEntry({"info"}, key, value);
+	try {
+		new Decsync<Unit>(getDecsyncSubdir(decsyncDir, syncType, collection), getOwnAppId(), listeners).setEntry({"info"}, key, value);
+	} catch (DecsyncError e) {
+		Log.e("Could not write info\n" + e.message);
+	}
 }
