@@ -54,7 +54,7 @@ e_cal_backend_decsync_events_factory_class_init (ECalBackendFactoryClass *class)
 	backend_factory_class->share_subprocess = TRUE;
 
 	class->factory_name = FACTORY_NAME;
-	class->component_kind = ICAL_VEVENT_COMPONENT;
+	class->component_kind = I_CAL_VEVENT_COMPONENT;
 	class->backend_type = E_TYPE_CAL_BACKEND_DECSYNC_EVENTS;
 }
 

@@ -56,12 +56,12 @@ typedef struct _EBookBackendDecsyncClass EBookBackendDecsyncClass;
 typedef struct _EBookBackendDecsyncPrivate EBookBackendDecsyncPrivate;
 
 struct _EBookBackendDecsync {
-	EBookBackend parent;
+	EBookBackendSync parent;
 	EBookBackendDecsyncPrivate *priv;
 };
 
 struct _EBookBackendDecsyncClass {
-	EBookBackendClass parent_class;
+	EBookBackendSyncClass parent_class;
 };
 
 GType		e_book_backend_decsync_get_type	(void);

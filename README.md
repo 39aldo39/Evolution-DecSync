@@ -31,7 +31,7 @@ sudo apt install \
 	libjson-glib-dev \
 	libebook1.2-dev \
 	libedata-book1.2-dev \
-	libedata-cal1.2-dev \
+	libedata-cal2.0-dev \
 	evolution-dev
 ```
 

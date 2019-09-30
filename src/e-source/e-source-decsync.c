@@ -20,10 +20,6 @@
 
 #include "e-source-decsync.h"
 
-#define E_SOURCE_DECSYNC_GET_PRIVATE(obj) \
-	(G_TYPE_INSTANCE_GET_PRIVATE \
-	((obj), E_TYPE_SOURCE_DECSYNC, ESourceDecsyncPrivate))
-
 struct _ESourceDecsyncPrivate {
 	gchar *decsync_dir;
 	gchar *collection;
@@ -37,10 +33,11 @@ enum {
 	PROP_APPID
 };
 
-G_DEFINE_TYPE (
+G_DEFINE_TYPE_WITH_CODE (
 	ESourceDecsync,
 	e_source_decsync,
-	E_TYPE_SOURCE_EXTENSION)
+	E_TYPE_SOURCE_EXTENSION,
+	G_ADD_PRIVATE (ESourceDecsync))
 
 static void
 source_decsync_set_property (GObject *object,
@@ -108,7 +105,7 @@ source_decsync_finalize (GObject *object)
 {
 	ESourceDecsyncPrivate *priv;
 
-	priv = E_SOURCE_DECSYNC_GET_PRIVATE (object);
+	priv = E_SOURCE_DECSYNC (object)->priv;
 
 	g_free (priv->decsync_dir);
 	g_free (priv->collection);
@@ -123,8 +120,6 @@ e_source_decsync_class_init (ESourceDecsyncClass *class)
 {
 	GObjectClass *object_class;
 	ESourceExtensionClass *extension_class;
-
-	g_type_class_add_private (class, sizeof (ESourceDecsyncPrivate));
 
 	object_class = G_OBJECT_CLASS (class);
 	object_class->set_property = source_decsync_set_property;
@@ -174,7 +169,7 @@ e_source_decsync_class_init (ESourceDecsyncClass *class)
 static void
 e_source_decsync_init (ESourceDecsync *extension)
 {
-	extension->priv = E_SOURCE_DECSYNC_GET_PRIVATE (extension);
+	extension->priv = e_source_decsync_get_instance_private (extension);
 }
 
 const gchar *

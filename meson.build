@@ -9,7 +9,7 @@ project('evolution-decsync', ['vala', 'c'],
 gee            = dependency('gee-0.8')
 json_glib      = dependency('json-glib-1.0')
 libedatabook   = dependency('libedata-book-1.2')
-libedatacal    = dependency('libedata-cal-1.2')
+libedatacal    = dependency('libedata-cal-2.0')
 evolutionshell = dependency('evolution-shell-3.0')
 libdecsync     = subproject('libdecsync').get_variable('libdecsync')
 
