@@ -1776,6 +1776,12 @@ free_busy_instance (ICalComponent *icomp,
 	ICalPeriod *ipt;
 	const gchar *summary, *location;
 
+	if (!i_cal_time_is_date (instance_start))
+		i_cal_time_convert_to_zone_inplace (instance_start, i_cal_timezone_get_utc_timezone ());
+
+	if (!i_cal_time_is_date (instance_end))
+		i_cal_time_convert_to_zone_inplace (instance_end, i_cal_timezone_get_utc_timezone ());
+
 	ipt = i_cal_period_new_null_period ();
 	i_cal_period_set_start (ipt, instance_start);
 	i_cal_period_set_end (ipt, instance_end);
