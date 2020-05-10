@@ -67,6 +67,7 @@ sudo pacman -S \
 ```
 git clone --recursive https://github.com/39aldo39/Evolution-DecSync
 cd ./Evolution-DecSync
+git checkout evolution-3.30
 meson build
 sudo ninja -C build install
 ```
