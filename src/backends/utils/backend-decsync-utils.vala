@@ -27,6 +27,7 @@ public class Extra {
 }
 
 public delegate void DeleteCollectionFunc(Extra extra);
+public delegate void UpdateNameFunc(Extra extra, string name);
 public delegate void UpdateColorFunc(Extra extra, string color);
 public delegate void UpdateResourceFunc(string uid, string resource, Extra extra);
 public delegate void RemoveResourceFunc(string uid, Extra extra);
@@ -35,12 +36,14 @@ class InfoListener : OnSubfileEntryUpdateListener<Extra> {
 
 	private Gee.List<string> m_subfile;
 	private DeleteCollectionFunc m_deleteCollection;
+	private UpdateNameFunc m_updateName;
 	private UpdateColorFunc? m_updateColor;
 
-	public InfoListener(owned DeleteCollectionFunc deleteCollection, owned UpdateColorFunc? updateColor)
+	public InfoListener(owned DeleteCollectionFunc deleteCollection, owned UpdateNameFunc updateName, owned UpdateColorFunc? updateColor)
 	{
 		this.m_subfile = toList({"info"});
 		this.m_deleteCollection = (owned)deleteCollection;
+		this.m_updateName = (owned)updateName;
 		this.m_updateColor = (owned)updateColor;
 	}
 
@@ -67,6 +70,7 @@ class InfoListener : OnSubfileEntryUpdateListener<Extra> {
 			if (name == null) {
 				Log.w("Invalid name " + Json.to_string(entry.value, false));
 			}
+			m_updateName(extra, name);
 		} else if (m_updateColor != null && info == "color") {
 			var color = entry.value.get_string();
 			if (color == null) {
@@ -128,11 +132,11 @@ class ResourcesListener : OnSubdirEntryUpdateListener<Extra> {
 
 public bool getDecsync(out Decsync<Extra> decsync,
     string decsyncDir, string syncType, string collection, string ownAppId,
-    owned DeleteCollectionFunc deleteCollection, owned UpdateColorFunc? updateColor,
+    owned DeleteCollectionFunc deleteCollection, owned UpdateNameFunc updateName, owned UpdateColorFunc? updateColor,
     owned UpdateResourceFunc updateResource, owned RemoveResourceFunc removeResource)
 {
 	var listeners = new Gee.ArrayList<OnEntryUpdateListener>();
-	listeners.add(new InfoListener((owned)deleteCollection, (owned)updateColor));
+	listeners.add(new InfoListener((owned)deleteCollection, (owned)updateName, (owned)updateColor));
 	listeners.add(new ResourcesListener((owned)updateResource, (owned)removeResource));
 	try {
 		decsync = new Decsync<Extra>(getDecsyncSubdir(decsyncDir, syncType, collection), ownAppId, listeners);

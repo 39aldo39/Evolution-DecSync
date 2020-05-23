@@ -3549,6 +3549,23 @@ deleteCal (Extra *extra, void *user_data)
 }
 
 static void
+updateName (Extra *extra, const gchar *name, void *user_data)
+{
+	ECalBackend *backend;
+	ESource *source;
+	const gchar *old_name;
+
+	backend = E_CAL_BACKEND (extra->backend);
+	source = e_backend_get_source (E_BACKEND (backend));
+
+	old_name = e_source_get_display_name (source);
+	if (g_strcmp0 (old_name, name)) {
+		e_source_set_display_name (source, name);
+		e_source_write_sync (source, NULL, NULL);
+	}
+}
+
+static void
 updateColor (Extra *extra, const gchar *color, void *user_data)
 {
 	ECalBackend *backend;
@@ -3614,6 +3631,7 @@ getDecsyncFromSource (Decsync **decsync, ESource *source)
 	return getDecsync(decsync,
 		decsync_dir, "calendars", collection, appid,
 		deleteCal, NULL, NULL,
+		updateName, NULL, NULL,
 		updateColor, NULL, NULL,
 		updateEvent, NULL, NULL,
 		removeEvent, NULL, NULL);
