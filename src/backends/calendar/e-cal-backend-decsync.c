@@ -3553,7 +3553,7 @@ updateColor (Extra *extra, const gchar *color, void *user_data)
 {
 	ECalBackend *backend;
 	ESource *source;
-	const gchar *extension_name;
+	const gchar *extension_name, *old_color;
 	ESourceExtension *extension;
 
 	backend = E_CAL_BACKEND (extra->backend);
@@ -3561,8 +3561,11 @@ updateColor (Extra *extra, const gchar *color, void *user_data)
 
 	extension_name = E_SOURCE_EXTENSION_CALENDAR;
 	extension = e_source_get_extension (source, extension_name);
-	e_source_selectable_set_color (E_SOURCE_SELECTABLE (extension), color);
-	e_source_write_sync (source, NULL, NULL);
+	old_color = e_source_selectable_get_color (E_SOURCE_SELECTABLE (extension));
+	if (g_strcmp0 (old_color, color)) {
+		e_source_selectable_set_color (E_SOURCE_SELECTABLE (extension), color);
+		e_source_write_sync (source, NULL, NULL);
+	}
 }
 
 static void
