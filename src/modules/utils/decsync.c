@@ -198,6 +198,8 @@ config_decsync_collection_set_cb (GtkComboBox *combo_box, Context *context)
 		config_decsync_update_combo_box (context);
 	} else {
 		e_source_decsync_set_collection (E_SOURCE_DECSYNC (extension), id);
+		name = gtk_combo_box_text_get_active_text (GTK_COMBO_BOX_TEXT (combo_box));
+		e_source_set_display_name (context->scratch_source, name);
 		config_decsync_update_color (context);
 	}
 }
