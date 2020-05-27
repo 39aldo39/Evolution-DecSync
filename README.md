@@ -71,6 +71,8 @@ meson build
 sudo ninja -C build install
 ```
 
+Note: the master branch does not work for Evolution 3.30 or older. For those, use the `evolution-3.30` branch instead.
+
 ### Further steps
 
 Once building is complete, enable syncing with Evolution by:
