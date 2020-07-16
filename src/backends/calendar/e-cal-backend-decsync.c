@@ -87,18 +87,8 @@ struct _ECalBackendDecsyncPrivate {
 
 	GList *comp;
 
-	/* guards refresh members */
-	GMutex refresh_lock;
-	/* set to TRUE to indicate thread should stop */
-	gboolean refresh_thread_stop;
-	/* condition for refreshing, not NULL when thread exists */
-	GCond *refresh_cond;
-	/* cond to know the refresh thread gone */
-	GCond *refresh_gone_cond;
 	/* increased when backend saves the file */
 	guint refresh_skip;
-
-	GFileMonitor *refresh_monitor;
 
 	/* Just an incremental number to ensure uniqueness across revisions */
 	guint revision_counter;
@@ -356,8 +346,6 @@ e_cal_backend_decsync_finalize (GObject *object)
 
 	if (priv->dirty_idle_id)
 		g_source_remove (priv->dirty_idle_id);
-
-	g_mutex_clear (&priv->refresh_lock);
 
 	g_rec_mutex_clear (&priv->idle_save_rmutex);
 	g_hash_table_destroy (priv->cached_timezones);
@@ -3754,8 +3742,6 @@ e_cal_backend_decsync_init (ECalBackendDecsync *cbfile)
 	cbfile->priv->file_name = g_strdup ("calendar.ics");
 
 	g_rec_mutex_init (&cbfile->priv->idle_save_rmutex);
-
-	g_mutex_init (&cbfile->priv->refresh_lock);
 
 	cbfile->priv->cached_timezones = g_hash_table_new_full (g_str_hash, g_str_equal, g_free, g_object_unref);
 }
