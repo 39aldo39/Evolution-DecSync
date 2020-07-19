@@ -1,4 +1,4 @@
-project('evolution-decsync', ['vala', 'c'],
+project('evolution-decsync', ['c'],
   version: '1.1.0',
   meson_version: '>= 0.44.1',
   license: 'LGPL',
@@ -6,12 +6,11 @@ project('evolution-decsync', ['vala', 'c'],
 )
 
 # Dependencies
-gee            = dependency('gee-0.8')
-json_glib      = dependency('json-glib-1.0')
 libedatabook   = dependency('libedata-book-1.2')
 libedatacal    = dependency('libedata-cal-2.0')
 evolutionshell = dependency('evolution-shell-3.0')
-libdecsync     = subproject('libdecsync').get_variable('libdecsync')
+jsonc          = dependency('json-c')
+libdecsync     = dependency('decsync', version: '>=1.4.0')
 
 # Special directories
 LIB_INSTALL_DIR      = join_paths(get_option('prefix'), 'lib')

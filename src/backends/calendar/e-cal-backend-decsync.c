@@ -34,7 +34,8 @@
 
 #include <libedataserver/libedataserver.h>
 #include <e-source/e-source-decsync.h>
-#include "backend-decsync-utils.h"
+#include <json.h>
+#include <libdecsync.h>
 
 #include "e-cal-backend-decsync-events.h"
 
@@ -93,7 +94,7 @@ struct _ECalBackendDecsyncPrivate {
 	/* Just an incremental number to ensure uniqueness across revisions */
 	guint revision_counter;
 
-	Decsync *decsync;
+	Decsync decsync;
 
 	/* Only for ETimezoneCache::get_timezone() call */
 	GHashTable *cached_timezones; /* gchar *tzid -> ICalTimezone * */
@@ -1872,6 +1873,8 @@ e_cal_backend_decsync_create_objects_with_decsync (ECalBackendSync *backend,
 	ECalBackendDecsyncPrivate *priv;
 	GSList *icomps = NULL;
 	const GSList *l;
+	const gchar *path[2], *key_string, *value_string;
+	json_object *value_json;
 
 	cbfile = E_CAL_BACKEND_DECSYNC (backend);
 	priv = cbfile->priv;
@@ -2001,7 +2004,15 @@ e_cal_backend_decsync_create_objects_with_decsync (ECalBackendSync *backend,
 		for (l = *uids; l; l = l->next) {
 			gchar *object;
 			e_cal_backend_decsync_get_ical (backend, NULL, l->data, NULL, TRUE, &object, NULL);
-			writeUpdate (priv->decsync, l->data, object);
+
+			path[0] = "resources";
+			path[1] = l->data;
+			key_string = json_object_to_json_string (NULL);
+			value_json = json_object_new_string (object);
+			value_string = json_object_to_json_string (value_json);
+			decsync_set_entry (priv->decsync, path, 2, key_string, value_string);
+			json_object_put (value_json);
+
 			g_free (object);
 		}
 	}
@@ -2079,6 +2090,8 @@ e_cal_backend_decsync_modify_objects_with_decsync (ECalBackendSync *backend,
 	GSList *icomps = NULL;
 	const GSList *l;
 	ResolveTzidData rtd;
+	const gchar *path[2], *key_string, *value_string;
+	json_object *value_json;
 
 	cbfile = E_CAL_BACKEND_DECSYNC (backend);
 	priv = cbfile->priv;
@@ -2444,7 +2457,15 @@ e_cal_backend_decsync_modify_objects_with_decsync (ECalBackendSync *backend,
 			gchar *object;
 			uid = i_cal_component_get_uid (e_cal_component_get_icalcomponent (l->data));
 			e_cal_backend_decsync_get_ical (backend, NULL, uid, NULL, TRUE, &object, NULL);
-			writeUpdate (priv->decsync, uid, object);
+
+			path[0] = "resources";
+			path[1] = uid;
+			key_string = json_object_to_json_string (NULL);
+			value_json = json_object_new_string (object);
+			value_string = json_object_to_json_string (value_json);
+			decsync_set_entry (priv->decsync, path, 2, key_string, value_string);
+			json_object_put (value_json);
+
 			g_free (object);
 		}
 	}
@@ -2697,6 +2718,8 @@ e_cal_backend_decsync_remove_objects_with_decsync (ECalBackendSync *backend,
 	ECalBackendDecsync *cbfile;
 	ECalBackendDecsyncPrivate *priv;
 	const GSList *l;
+	const gchar *path[2], *key_string, *value_string;
+	json_object *value_json = NULL;
 
 	cbfile = E_CAL_BACKEND_DECSYNC (backend);
 	priv = cbfile->priv;
@@ -2853,7 +2876,16 @@ e_cal_backend_decsync_remove_objects_with_decsync (ECalBackendSync *backend,
 			gchar *object = NULL;
 			uid = i_cal_component_get_uid (e_cal_component_get_icalcomponent (l->data));
 			e_cal_backend_decsync_get_ical (backend, NULL, uid, NULL, TRUE, &object, NULL);
-			writeUpdate (priv->decsync, uid, object);
+
+			path[0] = "resources";
+			path[1] = uid;
+			key_string = json_object_to_json_string (NULL);
+			if (object != NULL)
+				value_json = json_object_new_string (object);
+			value_string = json_object_to_json_string (value_json);
+			decsync_set_entry (priv->decsync, path, 2, key_string, value_string);
+			json_object_put (value_json);
+
 			g_free (object);
 		}
 	}
@@ -3060,6 +3092,8 @@ e_cal_backend_decsync_receive_objects_with_decsync (ECalBackendSync *backend,
 	ECalComponent *comp;
 	ECalBackendDecsyncTzidData tzdata;
 	GError *err = NULL;
+	const gchar *path[2], *key_string, *value_string;
+	json_object *value_json = NULL;
 
 	cbfile = E_CAL_BACKEND_DECSYNC (backend);
 	priv = cbfile->priv;
@@ -3350,7 +3384,16 @@ e_cal_backend_decsync_receive_objects_with_decsync (ECalBackendSync *backend,
 			uid = i_cal_component_get_uid (subcomp);
 			if (g_strcmp0(prev_uid, uid)) {
 				e_cal_backend_decsync_get_ical (backend, NULL, uid, NULL, TRUE, &object, NULL);
-				writeUpdate (priv->decsync, uid, object);
+
+				path[0] = "resources";
+				path[1] = uid;
+				key_string = json_object_to_json_string (NULL);
+				if (object != NULL)
+					value_json = json_object_new_string (object);
+				value_string = json_object_to_json_string (value_json);
+				decsync_set_entry (priv->decsync, path, 2, key_string, value_string);
+				json_object_put (value_json);
+
 				g_free (object);
 			}
 			prev_uid = uid;
@@ -3525,19 +3568,21 @@ cal_backend_decsync_list_cached_timezones (ETimezoneCache *cache)
  *                         DecSync updates                      *
  ****************************************************************/
 
-static void
-deleteCal (Extra *extra, void *user_data)
-{
+typedef struct {
 	ECalBackend *backend;
+} Extra;
+
+static void
+deleteCal (Extra *extra)
+{
 	ESource *source;
 
-	backend = E_CAL_BACKEND (extra->backend);
-	source = e_backend_get_source (E_BACKEND (backend));
+	source = e_backend_get_source (E_BACKEND (extra->backend));
 	e_source_remove_sync (source, NULL, NULL);
 }
 
 static void
-updateName (Extra *extra, const gchar *name, void *user_data)
+updateName (Extra *extra, const gchar *name)
 {
 	ECalBackend *backend;
 	ESource *source;
@@ -3554,15 +3599,13 @@ updateName (Extra *extra, const gchar *name, void *user_data)
 }
 
 static void
-updateColor (Extra *extra, const gchar *color, void *user_data)
+updateColor (Extra *extra, const gchar *color)
 {
-	ECalBackend *backend;
 	ESource *source;
 	const gchar *extension_name, *old_color;
 	ESourceExtension *extension;
 
-	backend = E_CAL_BACKEND (extra->backend);
-	source = e_backend_get_source (E_BACKEND (backend));
+	source = e_backend_get_source (E_BACKEND (extra->backend));
 
 	extension_name = E_SOURCE_EXTENSION_CALENDAR;
 	extension = e_source_get_extension (source, extension_name);
@@ -3574,7 +3617,7 @@ updateColor (Extra *extra, const gchar *color, void *user_data)
 }
 
 static void
-updateEvent (const gchar *uid, const gchar *ical, Extra *extra, void *user_data)
+updateEvent (const gchar *uid, const gchar *ical, Extra *extra)
 {
 	ECalBackendSync *backend;
 
@@ -3583,21 +3626,18 @@ updateEvent (const gchar *uid, const gchar *ical, Extra *extra, void *user_data)
 }
 
 static void
-removeEvent (const gchar *uid, Extra *extra, void *user_data)
+removeEvent (const gchar *uid, Extra *extra)
 {
-	ECalBackend *backend;
 	ECalComponentId *id;
 	GSList *ids;
 	GSList *old_components, *new_components;
 
-	backend = E_CAL_BACKEND (extra->backend);
-
 	id = e_cal_component_id_new (uid, NULL);
 	ids = g_slist_prepend (NULL, id);
-	e_cal_backend_decsync_remove_objects_with_decsync (E_CAL_BACKEND_SYNC (backend), NULL, NULL,
+	e_cal_backend_decsync_remove_objects_with_decsync (E_CAL_BACKEND_SYNC (extra->backend), NULL, NULL,
 			ids, E_CAL_OBJ_MOD_ALL, 0, &old_components, &new_components, NULL, FALSE);
 	if (old_components && new_components) {
-		e_cal_backend_notify_component_removed (backend, id, old_components->data, new_components->data);
+		e_cal_backend_notify_component_removed (extra->backend, id, old_components->data, new_components->data);
 		g_slist_free (old_components);
 		g_slist_free (new_components);
 	}
@@ -3605,33 +3645,84 @@ removeEvent (const gchar *uid, Extra *extra, void *user_data)
 	g_slist_free (ids);
 }
 
+static void
+infoListener (const gchar **path, int len, const char *datetime, const char *key_string, const char *value_string, void *extra_void)
+{
+	Extra *extra;
+	const gchar *info;
+	json_object *key, *value;
+
+	extra = (Extra*)extra_void;
+	key = json_tokener_parse (key_string);
+	value = json_tokener_parse (value_string);
+	info = json_object_get_string (key);
+	if (strcmp (info, "deleted") == 0) {
+		if (json_object_get_boolean (value) == TRUE) {
+			deleteCal (extra);
+		}
+	} else if (strcmp (info, "name") == 0) {
+		updateName(extra, json_object_get_string (value));
+	} else if (strcmp (info, "color") == 0) {
+		updateColor(extra, json_object_get_string (value));
+	} else {
+		g_warning ("Unknown info key: %s", info);
+	}
+}
+
+static void
+resourcesListener (const gchar **path, int len, const char *datetime, const char *key_string, const char *value_string, void *extra_void)
+{
+	Extra *extra;
+	const gchar *uid, *ical;
+	json_object *value;
+
+	extra = (Extra*)extra_void;
+	value = json_tokener_parse (value_string);
+	if (len != 1) {
+		g_warning ("Invalid resources path size %i", len);
+		return;
+	}
+	uid = path[0];
+	if (value == NULL) {
+		removeEvent(uid, extra);
+	} else {
+		ical = json_object_get_string (value);
+		updateEvent(uid, ical, extra);
+	}
+}
+
 static gboolean
-getDecsyncFromSource (Decsync **decsync, ESource *source)
+getDecsyncFromSource (ECalBackendDecsyncPrivate *priv, ESource *source)
 {
 	ESourceDecsync *decsync_extension;
-	const gchar *extension_name, *decsync_dir, *collection, *appid;
+	const gchar *extension_name, *decsync_dir, *collection, *appid, *path[1];
+	int error;
 
 	extension_name = E_SOURCE_EXTENSION_DECSYNC_BACKEND;
 	decsync_extension = e_source_get_extension (source, extension_name);
 	decsync_dir = e_source_decsync_get_decsync_dir (decsync_extension);
 	collection = e_source_decsync_get_collection (decsync_extension);
 	appid = e_source_decsync_get_appid (decsync_extension);
-	return getDecsync(decsync,
-		decsync_dir, "calendars", collection, appid,
-		deleteCal, NULL, NULL,
-		updateName, NULL, NULL,
-		updateColor, NULL, NULL,
-		updateEvent, NULL, NULL,
-		removeEvent, NULL, NULL);
+	error = decsync_new (&priv->decsync, decsync_dir, "calendars", collection, appid);
+	if (error != 0) {
+		return FALSE;
+	}
+	path[0] = "info";
+	decsync_add_listener (priv->decsync, path, 1, infoListener);
+	path[0] = "resources";
+	decsync_add_listener (priv->decsync, path, 1, resourcesListener);
+	return TRUE;
 }
 
 static gboolean
 ecal_backend_decsync_refresh_cb (gpointer backend)
 {
 	ECalBackendDecsync *cbfile;
+	Extra extra;
 
 	cbfile = E_CAL_BACKEND_DECSYNC (backend);
-	decsync_executeAllNewEntries (cbfile->priv->decsync, extra_new (cbfile));
+	extra = (Extra) {backend};
+	decsync_execute_all_new_entries (cbfile->priv->decsync, &extra);
 	return TRUE;
 }
 
@@ -3680,7 +3771,7 @@ cal_backend_decsync_initable_init (GInitable *initable,
 	source = e_backend_get_source (E_BACKEND (initable));
 	priv = E_CAL_BACKEND_DECSYNC (initable)->priv;
 
-	return getDecsyncFromSource (&priv->decsync, source);
+	return getDecsyncFromSource (priv, source);
 }
 
 static void

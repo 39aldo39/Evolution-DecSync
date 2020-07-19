@@ -41,7 +41,8 @@
 #include <glib/gi18n-lib.h>
 
 #include <e-source/e-source-decsync.h>
-#include "backend-decsync-utils.h"
+#include <json.h>
+#include <libdecsync.h>
 
 #include "e-book-backend-decsync.h"
 
@@ -76,7 +77,7 @@ struct _EBookBackendDecsyncPrivate {
 	GList     *cursors;
 
 	EBookSqlite *sqlitedb;
-	Decsync   *decsync;
+	Decsync   decsync;
 };
 
 G_DEFINE_TYPE_WITH_CODE (
@@ -805,6 +806,8 @@ do_create (EBookBackendDecsync *bf,
 	PhotoModifiedStatus status = STATUS_NORMAL;
 	guint ii, length;
 	GError *local_error = NULL;
+	const gchar *path[2], *key_string, *value_string;
+	json_object *value_json;
 
 	length = g_strv_length ((gchar **) vcards);
 
@@ -827,7 +830,15 @@ do_create (EBookBackendDecsync *bf,
 
 		if (update_decsync) {
 			id = e_contact_get (contact, E_CONTACT_UID);
-			writeUpdate (bf->priv->decsync, id, vcards[ii]);
+
+			path[0] = "resources";
+			path[1] = id;
+			key_string = json_object_to_json_string (NULL);
+			value_json = json_object_new_string (vcards[ii]);
+			value_string = json_object_to_json_string (value_json);
+			decsync_set_entry(bf->priv->decsync, path, 2, key_string, value_string);
+			json_object_put (value_json);
+
 			g_free (id);
 		}
 
@@ -1268,6 +1279,8 @@ book_backend_decsync_modify_contacts_sync_with_decsync (EBookBackendSync *backen
 	PhotoModifiedStatus status = STATUS_NORMAL;
 	GSList *old_contacts = NULL;
 	guint ii, length;
+	const gchar *path[2], *key_string, *value_string;
+	json_object *value_json;
 
 	length = g_strv_length ((gchar **) vcards);
 
@@ -1300,8 +1313,15 @@ book_backend_decsync_modify_contacts_sync_with_decsync (EBookBackendSync *backen
 			break;
 		}
 
-		if (update_decsync)
-			writeUpdate (bf->priv->decsync, id, vcards[ii]);
+		if (update_decsync) {
+			path[0] = "resources";
+			path[1] = id;
+			key_string = json_object_to_json_string (NULL);
+			value_json = json_object_new_string (vcards[ii]);
+			value_string = json_object_to_json_string (value_json);
+			decsync_set_entry (bf->priv->decsync, path, 2, key_string, value_string);
+			json_object_put (value_json);
+		}
 
 		if (!e_book_sqlite_get_contact (bf->priv->sqlitedb,
 						id, FALSE, &old_contact,
@@ -1482,6 +1502,7 @@ book_backend_decsync_remove_contacts_sync_with_decsync (EBookBackendSync *backen
 	const GSList     *l;
 	gboolean success = TRUE;
 	guint ii, length;
+	const gchar *path[2], *key_string, *value_string;
 
 	g_return_val_if_fail (out_removed_uids != NULL, FALSE);
 
@@ -1499,8 +1520,13 @@ book_backend_decsync_remove_contacts_sync_with_decsync (EBookBackendSync *backen
 	for (ii = 0; ii < length && success; ii++) {
 		EContact *contact = NULL;
 
-		if (update_decsync)
-			writeUpdate (bf->priv->decsync, uids[ii], NULL);
+		if (update_decsync) {
+			path[0] = "resources";
+			path[1] = uids[ii];
+			key_string = json_object_to_json_string (NULL);
+			value_string = json_object_to_json_string (NULL);
+			decsync_set_entry (bf->priv->decsync, path, 2, key_string, value_string);
+		}
 
 		/* First load the EContacts which need to be removed, we might delete some
 		 * photos from disk because of this...
@@ -2037,19 +2063,21 @@ book_backend_decsync_delete_cursor (EBookBackend *backend,
  *                         DecSync updates                      *
  ****************************************************************/
 
-static void
-deleteBook (Extra *extra, void *user_data)
-{
+typedef struct {
 	EBookBackend *backend;
+} Extra;
+
+static void
+deleteBook (Extra *extra)
+{
 	ESource *source;
 
-	backend = E_BOOK_BACKEND (extra->backend);
-	source = e_backend_get_source (E_BACKEND (backend));
+	source = e_backend_get_source (E_BACKEND (extra->backend));
 	e_source_remove_sync (source, NULL, NULL);
 }
 
 static void
-updateName (Extra *extra, const gchar *name, void *user_data)
+updateName (Extra *extra, const gchar *name)
 {
 	EBookBackend *backend;
 	ESource *source;
@@ -2066,7 +2094,7 @@ updateName (Extra *extra, const gchar *name, void *user_data)
 }
 
 static void
-updateContacts (const gchar *uid, const gchar *vcard, Extra *extra, void *user_data)
+updateContacts (const gchar *uid, const gchar *vcard, Extra *extra)
 {
 	EBookBackend *backend;
 	EBookBackendSync *backend_sync;
@@ -2100,7 +2128,7 @@ updateContacts (const gchar *uid, const gchar *vcard, Extra *extra, void *user_d
 }
 
 static void
-removeContacts (const gchar *uid, Extra *extra, void *user_data)
+removeContacts (const gchar *uid, Extra *extra)
 {
 	EBookBackend *backend;
 	EBookBackendSync *backend_sync;
@@ -2117,33 +2145,82 @@ removeContacts (const gchar *uid, Extra *extra, void *user_data)
 	g_slist_free_full (out_uids, g_free);
 }
 
+static void
+infoListener (const gchar **path, int len, const char *datetime, const char *key_string, const char *value_string, void *extra_void)
+{
+	Extra *extra;
+	const gchar *info;
+	json_object *key, *value;
+
+	extra = (Extra*)extra_void;
+	key = json_tokener_parse (key_string);
+	value = json_tokener_parse (value_string);
+	info = json_object_get_string (key);
+	if (strcmp (info, "deleted") == 0) {
+		if (json_object_get_boolean (value) == TRUE) {
+			deleteBook (extra);
+		}
+	} else if (strcmp (info, "name") == 0) {
+		updateName(extra, json_object_get_string (value));
+	} else {
+		g_warning ("Unknown info key: %s", info);
+	}
+}
+
+static void
+resourcesListener (const gchar **path, int len, const char *datetime, const char *key_string, const char *value_string, void *extra_void)
+{
+	Extra *extra;
+	const gchar *uid, *vcard;
+	json_object *value;
+
+	extra = (Extra*)extra_void;
+	value = json_tokener_parse (value_string);
+	if (len != 1) {
+		g_warning ("Invalid resources path size %i", len);
+		return;
+	}
+	uid = path[0];
+	if (value == NULL) {
+		removeContacts(uid, extra);
+	} else {
+		vcard = json_object_get_string (value);
+		updateContacts(uid, vcard, extra);
+	}
+}
+
 static gboolean
-getDecsyncFromSource (Decsync **decsync, ESource *source)
+getDecsyncFromSource (EBookBackendDecsyncPrivate *priv, ESource *source)
 {
 	ESourceDecsync *decsync_extension;
-	const gchar *extension_name, *decsync_dir, *collection, *appid;
+	const gchar *extension_name, *decsync_dir, *collection, *appid, *path[1];
+	int error;
 
 	extension_name = E_SOURCE_EXTENSION_DECSYNC_BACKEND;
 	decsync_extension = e_source_get_extension (source, extension_name);
 	decsync_dir = e_source_decsync_get_decsync_dir (decsync_extension);
 	collection = e_source_decsync_get_collection (decsync_extension);
 	appid = e_source_decsync_get_appid (decsync_extension);
-	return getDecsync(decsync,
-		decsync_dir, "contacts", collection, appid,
-		deleteBook, NULL, NULL,
-		updateName, NULL, NULL,
-		NULL, NULL, NULL,
-		updateContacts, NULL, NULL,
-		removeContacts, NULL, NULL);
+	error = decsync_new (&priv->decsync, decsync_dir, "contacts", collection, appid);
+	if (error != 0) {
+		return FALSE;
+	}
+	path[0] = "info";
+	decsync_add_listener (priv->decsync, path, 1, infoListener);
+	path[0] = "resources";
+	decsync_add_listener (priv->decsync, path, 1, resourcesListener);
+	return TRUE;
 }
 
 static gboolean
 book_backend_decsync_refresh_cb (gpointer backend)
 {
 	EBookBackendDecsync *bf;
+	Extra extra;
 
 	bf = E_BOOK_BACKEND_DECSYNC (backend);
-	decsync_executeAllNewEntries (bf->priv->decsync, extra_new (bf));
+	extra = (Extra) {backend};
+	decsync_execute_all_new_entries (bf->priv->decsync, &extra);
 	return TRUE;
 }
 
@@ -2211,7 +2288,7 @@ book_backend_decsync_initable_init (GInitable *initable,
 
 	fullpath = g_build_filename (dirname, "contacts.db", NULL);
 
-	success = getDecsyncFromSource (&priv->decsync, source);
+	success = getDecsyncFromSource (priv, source);
 
 	if (!success)
 		goto exit;

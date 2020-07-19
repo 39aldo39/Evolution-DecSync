@@ -8,9 +8,7 @@ shared_library(
     '../../e-source/e-source-decsync.h'
   ],
   dependencies: [
-    gee,
-    json_glib,
-    backend_decsync_utils,
+    jsonc,
     libdecsync,
     libedatabook
   ],
