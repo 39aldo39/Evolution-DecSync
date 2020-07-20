@@ -62,6 +62,8 @@ sudo pacman -S \
 	evolution
 ```
 
+In addition to the above dependencies, the library [libdecsync](https://github.com/39aldo39/libdecsync) is also required.
+
 ### Build
 
 ```
