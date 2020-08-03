@@ -2071,6 +2071,23 @@ deleteBook (Extra *extra, void *user_data)
 }
 
 static void
+updateName (Extra *extra, const gchar *name, void *user_data)
+{
+	EBookBackend *backend;
+	ESource *source;
+	const gchar *old_name;
+
+	backend = E_BOOK_BACKEND (extra->backend);
+	source = e_backend_get_source (E_BACKEND (backend));
+
+	old_name = e_source_get_display_name (source);
+	if (g_strcmp0 (old_name, name)) {
+		e_source_set_display_name (source, name);
+		e_source_write_sync (source, NULL, NULL);
+	}
+}
+
+static void
 updateContacts (const gchar *uid, const gchar *vcard, Extra *extra, void *user_data)
 {
 	EBookBackend *backend;
@@ -2126,6 +2143,7 @@ getDecsyncFromSource (Decsync **decsync, ESource *source)
 	return getDecsync(decsync,
 		decsync_dir, "contacts", collection, appid,
 		deleteBook, NULL, NULL,
+		updateName, NULL, NULL,
 		NULL, NULL, NULL,
 		updateContacts, NULL, NULL,
 		removeContacts, NULL, NULL);
