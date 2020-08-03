@@ -3067,11 +3067,11 @@ masters_first_cmp (gconstpointer ptr1,
 static gint
 masters_uid_cmp (gconstpointer ptr1, gconstpointer ptr2)
 {
-	ICalComponent *icomp1 = (ICalComponent *) ptr1;
-	ICalComponent *icomp2 = (ICalComponent *) ptr2;
+	icalcomponent *icomp1 = (icalcomponent *) ptr1;
+	icalcomponent *icomp2 = (icalcomponent *) ptr2;
 
-	return g_strcmp0 (icomp1 ? i_cal_component_get_uid (icomp1) : NULL,
-	                  icomp2 ? i_cal_component_get_uid (icomp2) : NULL);
+	return g_strcmp0 (icomp1 ? icalcomponent_get_uid (icomp1) : NULL,
+	                  icomp2 ? icalcomponent_get_uid (icomp2) : NULL);
 }
 
 static void
