@@ -15,6 +15,8 @@ For Arch Linux, there is a [AUR package](https://aur.archlinux.org/packages/evol
 Build from source
 -----------------
 
+In addition to the dependencies below, the library [libdecsync](https://github.com/39aldo39/libdecsync) is also required.
+
 Install dependencies:
 
 ### Debian/Ubuntu
@@ -25,10 +27,8 @@ sudo apt install \
 	git \
 	meson \
 	ninja-build \
-	valac \
 	pkg-config \
-	libgee-0.8-dev \
-	libjson-glib-dev \
+	libjson-c-dev \
 	libebook1.2-dev \
 	libedata-book1.2-dev \
 	libedata-cal2.0-dev \
@@ -41,9 +41,7 @@ sudo dnf install \
 	git \
 	gcc \
 	meson \
-	vala \
-	libgee-devel \
-	json-glib-devel \
+	json-c-devel \
 	evolution-data-server-devel \
 	evolution-devel
 ```
@@ -55,14 +53,10 @@ sudo pacman -S \
 	cmake \
 	meson \
 	ninja \
-	vala \
-	libgee \
-	json-glib \
+	json-c \
 	evolution-data-server \
 	evolution
 ```
-
-In addition to the above dependencies, the library [libdecsync](https://github.com/39aldo39/libdecsync) is also required.
 
 ### Build
 
