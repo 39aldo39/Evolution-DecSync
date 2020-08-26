@@ -2332,15 +2332,13 @@ e_cal_backend_decsync_modify_objects_with_decsync (ECalBackendSync *backend,
 					i_cal_time_convert_to_zone_inplace (rid_struct, i_cal_time_get_timezone (master_dtstart));
 				}
 
-				split_icomp = e_cal_util_split_at_instance (icomp, rid_struct, master_dtstart);
+				split_icomp = e_cal_util_split_at_instance_ex (icomp, rid_struct, master_dtstart, resolve_tzid_cb, &rtd);
 				if (split_icomp) {
 					ECalComponent *prev_comp;
 
 					prev_comp = e_cal_component_clone (obj_data->full_object);
 
-					i_cal_time_convert_to_zone_inplace (rid_struct, i_cal_timezone_get_utc_timezone ());
-
-					e_cal_util_remove_instances (e_cal_component_get_icalcomponent (obj_data->full_object), rid_struct, mod);
+					e_cal_util_remove_instances_ex (e_cal_component_get_icalcomponent (obj_data->full_object), rid_struct, mod, resolve_tzid_cb, &rtd);
 					e_cal_recur_ensure_end_dates (obj_data->full_object, TRUE, resolve_tzid_cb, &rtd, cancellable, NULL);
 
 					e_cal_backend_notify_component_modified (E_CAL_BACKEND (backend), prev_comp, obj_data->full_object);
@@ -2358,7 +2356,7 @@ e_cal_backend_decsync_modify_objects_with_decsync (ECalBackendSync *backend,
 			} else {
 				ICalTime *rid_struct = i_cal_component_get_recurrenceid (icomp);
 
-				split_icomp = e_cal_util_split_at_instance (icomp, rid_struct, NULL);
+				split_icomp = e_cal_util_split_at_instance_ex (icomp, rid_struct, NULL, resolve_tzid_cb, &rtd);
 
 				g_object_unref (rid_struct);
 			}
@@ -2518,6 +2516,7 @@ remove_instance (ECalBackendDecsync *cbfile,
 
 	if (rid) {
 		ICalTime *rid_struct;
+		ResolveTzidData rtd;
 		gpointer value;
 
 		/* remove recurrence */
@@ -2592,14 +2591,15 @@ remove_instance (ECalBackendDecsync *cbfile,
 			if (master_dtstart && i_cal_time_get_timezone (master_dtstart)) {
 				i_cal_time_convert_to_zone_inplace (rid_struct, i_cal_time_get_timezone (master_dtstart));
 			}
-
-			i_cal_time_convert_to_zone_inplace (rid_struct, i_cal_timezone_get_utc_timezone ());
 		}
 
-		e_cal_util_remove_instances (
-			e_cal_component_get_icalcomponent (obj_data->full_object),
-			rid_struct, E_CAL_OBJ_MOD_THIS);
+		resolve_tzid_data_init (&rtd, cbfile->priv->vcalendar);
 
+		e_cal_util_remove_instances_ex (
+			e_cal_component_get_icalcomponent (obj_data->full_object),
+			rid_struct, E_CAL_OBJ_MOD_THIS, resolve_tzid_cb, &rtd);
+
+		resolve_tzid_data_clear (&rtd);
 		g_clear_object (&rid_struct);
 
 		/* Since we are only removing one instance of recurrence
@@ -2813,6 +2813,7 @@ e_cal_backend_decsync_remove_objects_with_decsync (ECalBackendSync *backend,
 
 			if (comp) {
 				ICalTime *rid_struct;
+				ResolveTzidData rtd;
 
 				*old_components = g_slist_prepend (*old_components, e_cal_component_clone (comp));
 
@@ -2832,10 +2833,14 @@ e_cal_backend_decsync_remove_objects_with_decsync (ECalBackendSync *backend,
 
 					i_cal_time_convert_to_zone_inplace (rid_struct, i_cal_timezone_get_utc_timezone ());
 				}
-				e_cal_util_remove_instances (
-					e_cal_component_get_icalcomponent (comp),
-					rid_struct, mod);
 
+				resolve_tzid_data_init (&rtd, priv->vcalendar);
+
+				e_cal_util_remove_instances_ex (
+					e_cal_component_get_icalcomponent (comp),
+					rid_struct, mod, resolve_tzid_cb, &rtd);
+
+				resolve_tzid_data_clear (&rtd);
 				g_object_unref (rid_struct);
 			} else {
 				*old_components = g_slist_prepend (*old_components, NULL);
