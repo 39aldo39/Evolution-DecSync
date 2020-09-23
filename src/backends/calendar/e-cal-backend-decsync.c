@@ -3716,6 +3716,7 @@ getDecsyncFromSource (ECalBackendDecsyncPrivate *priv, ESource *source)
 	decsync_add_listener (priv->decsync, path, 1, infoListener);
 	path[0] = "resources";
 	decsync_add_listener (priv->decsync, path, 1, resourcesListener);
+	decsync_init_done (priv->decsync);
 	return TRUE;
 }
 
