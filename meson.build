@@ -10,7 +10,7 @@ libedatabook   = dependency('libedata-book-1.2')
 libedatacal    = dependency('libedata-cal-2.0')
 evolutionshell = dependency('evolution-shell-3.0')
 jsonc          = dependency('json-c')
-libdecsync     = dependency('decsync', version: '>=1.4.0')
+libdecsync     = dependency('decsync', version: '>=1.7.0')
 
 # Special directories
 LIB_INSTALL_DIR      = join_paths(get_option('prefix'), 'lib')
