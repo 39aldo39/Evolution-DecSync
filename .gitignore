@@ -2,3 +2,5 @@ build
 _build
 .build
 builddir
+deb
+*.deb

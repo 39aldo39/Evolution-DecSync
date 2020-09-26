@@ -1,0 +1,19 @@
+name: publish
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+jobs:
+  create-deb:
+    runs-on: ubuntu-20.04
+    steps:
+      - uses: actions/checkout@v2
+      - run: meson build
+      - run: ninja -C build
+      - run: ./create-deb.sh
+      - uses: actions/upload-artifact@v2
+        with:
+          name: evolution-decsync.deb
+          path: deb.deb
