@@ -4,4 +4,3 @@ _build
 builddir
 deb
 *.deb
-create-deb.sh
