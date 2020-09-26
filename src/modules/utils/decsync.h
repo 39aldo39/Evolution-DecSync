@@ -25,8 +25,6 @@
 
 #include <e-util/e-util.h>
 
-#include <decsync-utils.h>
-
 void		config_decsync_insert_widgets (const gchar *decsync_type_dirname, const gchar *decsync_type_title, ESourceConfigBackend *backend, ESource *scratch_source);
 gboolean	config_decsync_check_complete (ESourceConfigBackend *backend, ESource *scratch_source);
 void		config_decsync_commit_changes (ESourceConfigBackend *backend, ESource *scratch_source);

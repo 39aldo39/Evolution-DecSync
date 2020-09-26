@@ -17,7 +17,7 @@
  */
 
 #include "decsync.h"
-#include <decsync-utils.h>
+#include <json.h>
 #include <libdecsync.h>
 
 typedef struct _Context Context;
@@ -44,6 +44,66 @@ config_decsync_context_free (Context *context)
 	g_object_unref (context->collection_delete_button);
 
 	g_slice_free (Context, context);
+}
+
+static gchar *
+getInfo (const gchar *decsyncDir, const gchar *syncType, const gchar *collection, const gchar *name, const gchar *fallback)
+{
+	json_object *key, *value;
+	bool deleted;
+	const gchar *key_string;
+	gchar value_string[256], *result;
+
+	key = json_object_new_string ("deleted");
+	key_string = json_object_to_json_string (key);
+	decsync_get_static_info (decsyncDir, syncType, collection, key_string, value_string, 256);
+	value = json_tokener_parse (value_string);
+	json_object_put (key);
+	deleted = value != NULL && json_object_get_boolean (value);
+	json_object_put (value);
+	if (deleted)
+		return NULL;
+
+	key = json_object_new_string (name);
+	key_string = json_object_to_json_string (key);
+	decsync_get_static_info (decsyncDir, syncType, collection, key_string, value_string, 256);
+	value = json_tokener_parse (value_string);
+	json_object_put (key);
+	result = g_strdup (value == NULL ? fallback : json_object_get_string (value));
+	json_object_put (value);
+	return result;
+}
+
+static void
+setInfoEntry (const gchar *decsyncDir, const gchar *syncType, const gchar *collection, const gchar *name, json_object *value)
+{
+	Decsync decsync;
+	const gchar *path[1], *key_string, *value_string;
+	gchar ownAppId[256];
+	json_object *key;
+
+	decsync_get_app_id ("Evolution", ownAppId, 256);
+	decsync_new (&decsync, decsyncDir, syncType, collection, ownAppId);
+	path[0] = "info";
+	key = json_object_new_string (name);
+	key_string = json_object_to_json_string (key);
+	value_string = json_object_to_json_string (value);
+	decsync_set_entry (decsync, path, 1, key_string, value_string);
+	json_object_put (key);
+	decsync_free (decsync);
+}
+
+static gchar *
+createCollection (const gchar *decsyncDir, const gchar *syncType, const gchar *name)
+{
+	gchar *collection;
+	json_object *value;
+
+	collection = g_strdup_printf ("colID%05d", rand () % 100000);
+	value = json_object_new_string (name);
+	setInfoEntry(decsyncDir, syncType, collection, "name", value);
+	json_object_put (value);
+	return collection;
 }
 
 static void
@@ -78,10 +138,9 @@ config_decsync_update_combo_box (Context *context)
 {
 	ESourceConfig *config;
 	ESourceExtension *extension;
-	const gchar *extension_name, *decsync_dir, *collection, *title;
-	gchar **collections;
-	gchar *name, *error;
-	int ii, length;
+	const gchar *extension_name, *decsync_dir, *collection, *title, *error_string;
+	gchar collections[256][256], *name;
+	int ii, length, error;
 	GtkWidget *dialog;
 	gpointer parent;
 
@@ -91,8 +150,19 @@ config_decsync_update_combo_box (Context *context)
 
 	gtk_combo_box_text_remove_all (context->collection_combo_box);
 
-	error = checkDecsyncInfoWrapper (decsync_dir);
-	if (*error != '\0') {
+	error = decsync_check_decsync_info (decsync_dir);
+	if (error != 0) {
+		switch (error) {
+			case 1:
+				error_string = "Invalid .decsync-info";
+				break;
+			case 2:
+				error_string = "Unsupported DecSync version";
+				break;
+			default:
+				error_string = "Unknown error";
+				break;
+		}
 		config = e_source_config_backend_get_config (context->backend);
 		parent = gtk_widget_get_toplevel (GTK_WIDGET (config));
 		parent = gtk_widget_is_toplevel (parent) ? parent : NULL;
@@ -100,20 +170,20 @@ config_decsync_update_combo_box (Context *context)
 			GTK_DIALOG_DESTROY_WITH_PARENT,
 			GTK_MESSAGE_WARNING,
 			GTK_BUTTONS_OK,
-			error);
+			error_string);
 		title = _("DecSync");
 		gtk_window_set_title (GTK_WINDOW (dialog), title);
 
 		gtk_dialog_run (GTK_DIALOG (dialog));
 		gtk_widget_destroy (dialog);
 	} else if (decsync_dir != NULL && *decsync_dir != '\0') {
-		collections = listDecsyncCollectionsWrapper (decsync_dir, context->sync_type, &length);
+		length = decsync_list_collections (decsync_dir, context->sync_type, collections, 256);
 		for (ii = 0; ii < length; ii++) {
-			name = getInfo (decsync_dir, context->sync_type, collections[ii], "name", collections[ii]);
+			collection = collections[ii];
+			name = getInfo (decsync_dir, context->sync_type, collection, "name", collection);
 			if (name != NULL && *name != '\0')
-				gtk_combo_box_text_append (context->collection_combo_box, collections[ii], name);
+				gtk_combo_box_text_append (context->collection_combo_box, collection, name);
 			g_free (name);
-			g_free (collections[ii]);
 		}
 		gtk_combo_box_text_append (context->collection_combo_box, "", _("New..."));
 	}
@@ -214,6 +284,7 @@ config_decsync_collection_rename_cb (GtkButton *button, Context *context)
 	GtkWidget *dialog, *container, *widget;
 	gpointer parent;
 	gint position;
+	json_object *value;
 
 	config = e_source_config_backend_get_config (context->backend);
 	extension_name = E_SOURCE_EXTENSION_DECSYNC_BACKEND;
@@ -245,7 +316,9 @@ config_decsync_collection_rename_cb (GtkButton *button, Context *context)
 		name = gtk_entry_get_text (GTK_ENTRY (widget));
 		if (name != NULL && *name != '\0' && g_strcmp0 (name, name_old)) {
 			dir = e_source_decsync_get_decsync_dir (E_SOURCE_DECSYNC (extension));
-			setInfoEntry (dir, context->sync_type, collection, "name", name);
+			value = json_object_new_string (name);
+			setInfoEntry (dir, context->sync_type, collection, "name", value);
+			json_object_put (value);
 			gtk_combo_box_text_remove (context->collection_combo_box, position);
 			gtk_combo_box_text_insert (context->collection_combo_box, position, collection, name);
 			gtk_combo_box_set_active_id (GTK_COMBO_BOX (context->collection_combo_box), collection);
@@ -264,6 +337,7 @@ config_decsync_collection_delete_cb (GtkButton *button, Context *context)
 	GtkWidget *dialog;
 	gpointer parent;
 	gint position;
+	json_object *value;
 
 	config = e_source_config_backend_get_config (context->backend);
 	extension_name = E_SOURCE_EXTENSION_DECSYNC_BACKEND;
@@ -288,7 +362,9 @@ config_decsync_collection_delete_cb (GtkButton *button, Context *context)
 	g_free (title);
 
 	if (gtk_dialog_run (GTK_DIALOG (dialog)) == GTK_RESPONSE_YES) {
-		setDeleteEntry (dir, context->sync_type, collection, TRUE);
+		value = json_object_new_boolean (TRUE);
+		setInfoEntry (dir, context->sync_type, collection, "deleted", value);
+		json_object_put (value);
 		position = gtk_combo_box_get_active (GTK_COMBO_BOX (context->collection_combo_box));
 		gtk_combo_box_text_remove (context->collection_combo_box, position);
 	}
@@ -302,8 +378,8 @@ config_decsync_insert_widgets (const gchar *sync_type, const gchar *sync_type_ti
 	ESourceExtension *extension;
 	GtkWidget *widget, *container;
 	Context *context;
-	const gchar *extension_name, *uid;
-	gchar *decsync_dir, *title;
+	const gchar *extension_name, *uid, *decsync_dir;
+	gchar *title, default_decsync_dir[256];
 
 	uid = e_source_get_uid (scratch_source);
 	config = e_source_config_backend_get_config (backend);
@@ -333,13 +409,13 @@ config_decsync_insert_widgets (const gchar *sync_type, const gchar *sync_type_ti
 
 	extension_name = E_SOURCE_EXTENSION_DECSYNC_BACKEND;
 	extension = e_source_get_extension (scratch_source, extension_name);
-	decsync_dir = e_source_decsync_dup_decsync_dir (E_SOURCE_DECSYNC (extension));
+	decsync_dir = e_source_decsync_get_decsync_dir (E_SOURCE_DECSYNC (extension));
 	if (decsync_dir == NULL || *decsync_dir == '\0') {
-		decsync_dir = getDefaultDecsyncBaseDir();
+		decsync_get_default_dir (default_decsync_dir, 256);
+		decsync_dir = default_decsync_dir;
 		e_source_decsync_set_decsync_dir (E_SOURCE_DECSYNC (extension), decsync_dir);
 	}
 	gtk_file_chooser_set_file (GTK_FILE_CHOOSER (widget), g_file_new_for_path (decsync_dir), NULL);
-	g_free (decsync_dir);
 
 	e_source_config_insert_widget (
 		config, scratch_source, _("Directory:"), widget);
@@ -431,7 +507,8 @@ config_decsync_commit_changes (ESourceConfigBackend *backend, ESource *scratch_s
 	ESourceExtension *extension;
 	Context *context;
 	const gchar *uid, *extension_name, *decsync_dir, *collection, *old_appid, *new_color;
-	gchar *new_appid, *old_color;
+	gchar new_appid[256], *old_color;
+	json_object *value;
 
 	uid = e_source_get_uid (scratch_source);
 	context = g_object_get_data (G_OBJECT (backend), uid);
@@ -443,9 +520,8 @@ config_decsync_commit_changes (ESourceConfigBackend *backend, ESource *scratch_s
 
 	old_appid = e_source_decsync_get_appid (E_SOURCE_DECSYNC (extension));
 	if (old_appid == NULL || *old_appid == '\0') {
-		new_appid = getOwnAppId (true);
+		decsync_get_app_id_with_id ("Evolution", rand () % 100000, new_appid, 256);
 		e_source_decsync_set_appid (E_SOURCE_DECSYNC (extension), new_appid);
-		g_free (new_appid);
 	}
 
 	extension_name = E_SOURCE_EXTENSION_CALENDAR;
@@ -454,8 +530,11 @@ config_decsync_commit_changes (ESourceConfigBackend *backend, ESource *scratch_s
 		new_color = e_source_selectable_get_color (E_SOURCE_SELECTABLE (extension));
 		old_color = getInfo (decsync_dir, context->sync_type, collection, "color", NULL);
 
-		if (g_strcmp0 (new_color, old_color))
-			setInfoEntry (decsync_dir, context->sync_type, collection, "color", new_color);
+		if (g_strcmp0 (new_color, old_color)) {
+			value = json_object_new_string (new_color);
+			setInfoEntry (decsync_dir, context->sync_type, collection, "color", value);
+			json_object_put (value);
+		}
 
 		g_free (old_color);
 	}

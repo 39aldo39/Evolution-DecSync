@@ -25,7 +25,6 @@
 
 #include <e-util/e-util.h>
 
-#include <decsync-utils.h>
 #include <modules/utils/decsync.h>
 
 typedef ESourceConfigBackend ECalConfigDecsync;
