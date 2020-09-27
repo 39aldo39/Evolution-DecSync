@@ -10,6 +10,10 @@ jobs:
     runs-on: ubuntu-18.04
     steps:
       - uses: actions/checkout@v2
+      - run: sudo apt install meson ninja-build libjson-c-dev libebook1.2-dev libedata-book1.2-dev libedata-cal1.2-dev evolution-dev
+      - run: git clone https://github.com/39aldo39/libdecsync && cd ./libdecsync && git checkout v1.7.1
+      - run: make && sudo make install
+      - run: cd ..
       - run: meson build
       - run: ninja -C build
       - run: ./create-deb.sh
