@@ -28,7 +28,7 @@ struct _Context {
 	gchar *orig_color;
 	const gchar *sync_type;		/* not referenced */
 	const gchar *sync_type_title;		/* not referenced */
-	GtkFileChooser *decsync_dir_chooser;
+	GtkButton *decsync_dir_button;
 	GtkComboBoxText *collection_combo_box;
 	GtkButton *collection_rename_button;
 	GtkButton *collection_delete_button;
@@ -38,7 +38,7 @@ static void
 config_decsync_context_free (Context *context)
 {
 	g_free (context->orig_color);
-	g_object_unref (context->decsync_dir_chooser);
+	g_object_unref (context->decsync_dir_button);
 	g_object_unref (context->collection_combo_box);
 	g_object_unref (context->collection_rename_button);
 	g_object_unref (context->collection_delete_button);
@@ -196,23 +196,43 @@ config_decsync_update_combo_box (Context *context)
 }
 
 static void
-config_decsync_dir_set_cb (GtkFileChooserButton *button, Context *context)
+config_decsync_dir_cb (GtkButton *button, Context *context)
 {
+	ESourceConfig *config;
 	ESourceExtension *extension;
-	const gchar *extension_name;
-	gchar *decsync_dir;
-	GFile *dir;
+	const gchar *extension_name, *decsync_dir;
+	GtkWidget *dialog;
+	gpointer parent;
 
+	config = e_source_config_backend_get_config (context->backend);
 	extension_name = E_SOURCE_EXTENSION_DECSYNC_BACKEND;
 	extension = e_source_get_extension (context->scratch_source, extension_name);
-	dir = gtk_file_chooser_get_file (context->decsync_dir_chooser);
-	decsync_dir = g_file_get_path (dir);
-	e_source_decsync_set_decsync_dir (E_SOURCE_DECSYNC (extension), decsync_dir);
-	e_source_decsync_set_collection (E_SOURCE_DECSYNC (extension), NULL);
 
-	config_decsync_update_combo_box (context);
+	decsync_dir = e_source_decsync_get_decsync_dir (E_SOURCE_DECSYNC (extension));
 
-	g_free (decsync_dir);
+	parent = gtk_widget_get_toplevel (GTK_WIDGET (config));
+	parent = gtk_widget_is_toplevel (parent) ? parent : NULL;
+
+	dialog = gtk_file_chooser_dialog_new (
+		_("Select DecSync directory"), parent,
+		GTK_FILE_CHOOSER_ACTION_SELECT_FOLDER,
+		_("_Cancel"), GTK_RESPONSE_CANCEL,
+		_("_OK"), GTK_RESPONSE_ACCEPT,
+		NULL);
+	gtk_file_chooser_set_create_folders (GTK_FILE_CHOOSER (dialog), TRUE);
+	gtk_file_chooser_set_show_hidden (GTK_FILE_CHOOSER (dialog), TRUE);
+	gtk_file_chooser_set_filename (GTK_FILE_CHOOSER (dialog), decsync_dir);
+
+	if (gtk_dialog_run (GTK_DIALOG (dialog)) == GTK_RESPONSE_ACCEPT) {
+		extension_name = E_SOURCE_EXTENSION_DECSYNC_BACKEND;
+		extension = e_source_get_extension (context->scratch_source, extension_name);
+		decsync_dir = gtk_file_chooser_get_filename (GTK_FILE_CHOOSER (dialog));
+		gtk_button_set_label (context->decsync_dir_button, decsync_dir);
+		e_source_decsync_set_decsync_dir (E_SOURCE_DECSYNC (extension), decsync_dir);
+		e_source_decsync_set_collection (E_SOURCE_DECSYNC (extension), NULL);
+		config_decsync_update_combo_box (context);
+	}
+	gtk_widget_destroy (dialog);
 }
 
 static void
@@ -380,6 +400,7 @@ config_decsync_insert_widgets (const gchar *sync_type, const gchar *sync_type_ti
 	Context *context;
 	const gchar *extension_name, *uid, *decsync_dir;
 	gchar *title, default_decsync_dir[256];
+	gboolean is_new_collection;
 
 	uid = e_source_get_uid (scratch_source);
 	config = e_source_config_backend_get_config (backend);
@@ -402,34 +423,35 @@ config_decsync_insert_widgets (const gchar *sync_type, const gchar *sync_type_ti
 		G_OBJECT (backend), uid, context,
 		(GDestroyNotify) config_decsync_context_free);
 
-	widget = gtk_file_chooser_button_new (
-		_("Select Directory"), GTK_FILE_CHOOSER_ACTION_SELECT_FOLDER);
-	gtk_file_chooser_set_create_folders (GTK_FILE_CHOOSER (widget), TRUE);
-	gtk_file_chooser_set_show_hidden (GTK_FILE_CHOOSER (widget), TRUE);
-
 	extension_name = E_SOURCE_EXTENSION_DECSYNC_BACKEND;
 	extension = e_source_get_extension (scratch_source, extension_name);
 	decsync_dir = e_source_decsync_get_decsync_dir (E_SOURCE_DECSYNC (extension));
 	if (decsync_dir == NULL || *decsync_dir == '\0') {
+		is_new_collection = TRUE;
 		decsync_get_default_dir (default_decsync_dir, 256);
 		decsync_dir = default_decsync_dir;
 		e_source_decsync_set_decsync_dir (E_SOURCE_DECSYNC (extension), decsync_dir);
+	} else {
+		is_new_collection = FALSE;
 	}
-	gtk_file_chooser_set_file (GTK_FILE_CHOOSER (widget), g_file_new_for_path (decsync_dir), NULL);
+
+	widget = gtk_button_new_with_label (decsync_dir);
+	gtk_widget_set_sensitive (widget, is_new_collection);
 
 	e_source_config_insert_widget (
 		config, scratch_source, _("Directory:"), widget);
-	context->decsync_dir_chooser = GTK_FILE_CHOOSER (g_object_ref (widget));
+	context->decsync_dir_button = GTK_BUTTON (g_object_ref (widget));
 	gtk_widget_show (widget);
 
 	g_signal_connect (
-		widget, "file-set",
-		G_CALLBACK (config_decsync_dir_set_cb),
+		widget, "clicked",
+		G_CALLBACK (config_decsync_dir_cb),
 		context);
 
 	container = gtk_box_new (GTK_ORIENTATION_HORIZONTAL, 6);
 
 	widget = gtk_combo_box_text_new ();
+	gtk_widget_set_sensitive (widget, is_new_collection);
 	gtk_box_pack_start (GTK_BOX (container), widget, TRUE, TRUE, 0);
 	context->collection_combo_box = GTK_COMBO_BOX_TEXT (g_object_ref (widget));
 	gtk_widget_show (widget);
