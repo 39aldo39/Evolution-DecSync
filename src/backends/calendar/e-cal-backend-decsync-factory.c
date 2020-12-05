@@ -24,11 +24,19 @@
 #include "evolution-decsync-config.h"
 
 #include "e-cal-backend-decsync-events.h"
+#include "e-cal-backend-decsync-journal.h"
+#include "e-cal-backend-decsync-todos.h"
 
 #define FACTORY_NAME "decsync"
 
 typedef ECalBackendFactory ECalBackendDecsyncEventsFactory;
 typedef ECalBackendFactoryClass ECalBackendDecsyncEventsFactoryClass;
+
+typedef ECalBackendFactory ECalBackendDecsyncJournalFactory;
+typedef ECalBackendFactoryClass ECalBackendDecsyncJournalFactoryClass;
+
+typedef ECalBackendFactory ECalBackendDecsyncTodosFactory;
+typedef ECalBackendFactoryClass ECalBackendDecsyncTodosFactoryClass;
 
 static EModule *e_module;
 
@@ -38,10 +46,22 @@ void e_module_unload (GTypeModule *type_module);
 
 /* Forward Declarations */
 GType e_cal_backend_decsync_events_factory_get_type (void);
+GType e_cal_backend_decsync_journal_factory_get_type (void);
+GType e_cal_backend_decsync_todos_factory_get_type (void);
 
 G_DEFINE_DYNAMIC_TYPE (
 	ECalBackendDecsyncEventsFactory,
 	e_cal_backend_decsync_events_factory,
+	E_TYPE_CAL_BACKEND_FACTORY)
+
+G_DEFINE_DYNAMIC_TYPE (
+	ECalBackendDecsyncJournalFactory,
+	e_cal_backend_decsync_journal_factory,
+	E_TYPE_CAL_BACKEND_FACTORY)
+
+G_DEFINE_DYNAMIC_TYPE (
+	ECalBackendDecsyncTodosFactory,
+	e_cal_backend_decsync_todos_factory,
 	E_TYPE_CAL_BACKEND_FACTORY)
 
 static void
@@ -68,12 +88,62 @@ e_cal_backend_decsync_events_factory_init (ECalBackendFactory *factory)
 {
 }
 
+static void
+e_cal_backend_decsync_journal_factory_class_init (ECalBackendFactoryClass *class)
+{
+	EBackendFactoryClass *backend_factory_class;
+
+	backend_factory_class = E_BACKEND_FACTORY_CLASS (class);
+	backend_factory_class->e_module = e_module;
+	backend_factory_class->share_subprocess = TRUE;
+
+	class->factory_name = FACTORY_NAME;
+	class->component_kind = ICAL_VJOURNAL_COMPONENT;
+	class->backend_type = E_TYPE_CAL_BACKEND_DECSYNC_JOURNAL;
+}
+
+static void
+e_cal_backend_decsync_journal_factory_class_finalize (ECalBackendFactoryClass *class)
+{
+}
+
+static void
+e_cal_backend_decsync_journal_factory_init (ECalBackendFactory *factory)
+{
+}
+
+static void
+e_cal_backend_decsync_todos_factory_class_init (ECalBackendFactoryClass *class)
+{
+	EBackendFactoryClass *backend_factory_class;
+
+	backend_factory_class = E_BACKEND_FACTORY_CLASS (class);
+	backend_factory_class->e_module = e_module;
+	backend_factory_class->share_subprocess = TRUE;
+
+	class->factory_name = FACTORY_NAME;
+	class->component_kind = ICAL_VTODO_COMPONENT;
+	class->backend_type = E_TYPE_CAL_BACKEND_DECSYNC_TODOS;
+}
+
+static void
+e_cal_backend_decsync_todos_factory_class_finalize (ECalBackendFactoryClass *class)
+{
+}
+
+static void
+e_cal_backend_decsync_todos_factory_init (ECalBackendFactory *factory)
+{
+}
+
 G_MODULE_EXPORT void
 e_module_load (GTypeModule *type_module)
 {
 	e_module = E_MODULE (type_module);
 
 	e_cal_backend_decsync_events_factory_register_type (type_module);
+	e_cal_backend_decsync_journal_factory_register_type (type_module);
+	e_cal_backend_decsync_todos_factory_register_type (type_module);
 }
 
 G_MODULE_EXPORT void

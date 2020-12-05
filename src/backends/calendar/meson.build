@@ -5,6 +5,10 @@ shared_library(
     'e-cal-backend-decsync.h',
     'e-cal-backend-decsync-events.c',
     'e-cal-backend-decsync-events.h',
+    'e-cal-backend-decsync-journal.c',
+    'e-cal-backend-decsync-journal.h',
+    'e-cal-backend-decsync-todos.c',
+    'e-cal-backend-decsync-todos.h',
     'e-cal-backend-decsync-factory.c',
     '../../e-source/e-source-decsync.c',
     '../../e-source/e-source-decsync.h'
