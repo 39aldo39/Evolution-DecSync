@@ -45,12 +45,6 @@ G_DEFINE_DYNAMIC_TYPE (
 static void
 cal_config_decsync_insert_widgets (ESourceConfigBackend *backend, ESource *scratch_source)
 {
-	config_decsync_insert_widgets ("calendars", _("Calendar"), backend, scratch_source);
-}
-
-static gboolean
-cal_config_decsync_allow_creation (ESourceConfigBackend *backend)
-{
 	ESourceConfig *config;
 	ECalSourceConfig *cal_config;
 	ECalClientSourceType source_type;
@@ -59,8 +53,21 @@ cal_config_decsync_allow_creation (ESourceConfigBackend *backend)
 
 	cal_config = E_CAL_SOURCE_CONFIG (config);
 	source_type = e_cal_source_config_get_source_type (cal_config);
-
-	return source_type == E_CAL_CLIENT_SOURCE_TYPE_EVENTS;
+	switch (source_type)
+	{
+		case E_CAL_CLIENT_SOURCE_TYPE_EVENTS:
+			config_decsync_insert_widgets ("calendars", _("Calendar"), backend, scratch_source);
+			break;
+		case E_CAL_CLIENT_SOURCE_TYPE_TASKS:
+			config_decsync_insert_widgets ("tasks", _("Task List"), backend, scratch_source);
+			break;
+		case E_CAL_CLIENT_SOURCE_TYPE_MEMOS:
+			config_decsync_insert_widgets ("memos", _("Memo List"), backend, scratch_source);
+			break;
+		case E_CAL_CLIENT_SOURCE_TYPE_LAST:
+			// Do nothing, artificial value
+			break;
+	}
 }
 
 static void
@@ -75,7 +82,6 @@ e_cal_config_decsync_class_init (ESourceConfigBackendClass *class)
 
 	class->parent_uid = "decsync";
 	class->backend_name = "decsync";
-	class->allow_creation = cal_config_decsync_allow_creation;
 	class->insert_widgets = cal_config_decsync_insert_widgets;
 	class->check_complete = config_decsync_check_complete;
 	class->commit_changes = config_decsync_commit_changes;

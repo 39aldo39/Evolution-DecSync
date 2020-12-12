@@ -482,6 +482,12 @@ e_cal_backend_decsync_get_backend_property (ECalBackend *backend,
 		case I_CAL_VEVENT_COMPONENT:
 			e_cal_component_set_new_vtype (comp, E_CAL_COMPONENT_EVENT);
 			break;
+		case I_CAL_VTODO_COMPONENT:
+			e_cal_component_set_new_vtype (comp, E_CAL_COMPONENT_TODO);
+			break;
+		case I_CAL_VJOURNAL_COMPONENT:
+			e_cal_component_set_new_vtype (comp, E_CAL_COMPONENT_JOURNAL);
+			break;
 		default:
 			g_object_unref (comp);
 			return NULL;
@@ -885,7 +891,9 @@ scan_vcalendar (ECalBackendDecsync *cbfile)
 
 		kind = i_cal_component_isa (icomp);
 
-		if (kind == I_CAL_VEVENT_COMPONENT) {
+		if (kind == I_CAL_VEVENT_COMPONENT ||
+		    kind == I_CAL_VTODO_COMPONENT ||
+		    kind == I_CAL_VJOURNAL_COMPONENT) {
 			comp = e_cal_component_new ();
 
 			if (e_cal_component_set_icalcomponent (comp, icomp)) {
@@ -3471,6 +3479,14 @@ cal_backend_decsync_constructed (GObject *object)
 			component_type = "calendar";
 			builtin_source = e_source_registry_ref_builtin_calendar (registry);
 			break;
+		case I_CAL_VTODO_COMPONENT:
+			component_type = "tasks";
+			builtin_source = e_source_registry_ref_builtin_task_list (registry);
+			break;
+		case I_CAL_VJOURNAL_COMPONENT:
+			component_type = "memos";
+			builtin_source = e_source_registry_ref_builtin_memo_list (registry);
+			break;
 		default:
 			g_warn_if_reached ();
 			component_type = "calendar";
@@ -3604,10 +3620,23 @@ updateColor (Extra *extra, const gchar *color)
 	ESource *source;
 	const gchar *extension_name, *old_color;
 	ESourceExtension *extension;
+	ICalComponentKind kind;
 
 	source = e_backend_get_source (E_BACKEND (extra->backend));
-
-	extension_name = E_SOURCE_EXTENSION_CALENDAR;
+	kind = e_cal_backend_get_kind (extra->backend);
+	switch (kind) {
+		default:
+			g_warn_if_reached ();
+		case I_CAL_VEVENT_COMPONENT:
+			extension_name = E_SOURCE_EXTENSION_CALENDAR;
+			break;
+		case I_CAL_VTODO_COMPONENT:
+			extension_name = E_SOURCE_EXTENSION_TASK_LIST;
+			break;
+		case I_CAL_VJOURNAL_COMPONENT:
+			extension_name = E_SOURCE_EXTENSION_MEMO_LIST;
+			break;
+	}
 	extension = e_source_get_extension (source, extension_name);
 	old_color = e_source_selectable_get_color (E_SOURCE_SELECTABLE (extension));
 	if (g_strcmp0 (old_color, color)) {
@@ -3692,18 +3721,35 @@ resourcesListener (const gchar **path, int len, const char *datetime, const char
 }
 
 static gboolean
-getDecsyncFromSource (ECalBackendDecsyncPrivate *priv, ESource *source)
+getDecsyncFromSource (ECalBackendDecsyncPrivate *priv, ECalBackend *backend)
 {
+	ESource *source;
 	ESourceDecsync *decsync_extension;
-	const gchar *extension_name, *decsync_dir, *collection, *appid, *path[1];
+	ICalComponentKind kind;
+	const gchar *extension_name, *decsync_dir, *sync_type, *collection, *appid, *path[1];
 	int error;
 
+	kind = e_cal_backend_get_kind (backend);
+	source = e_backend_get_source (E_BACKEND (backend));
 	extension_name = E_SOURCE_EXTENSION_DECSYNC_BACKEND;
 	decsync_extension = e_source_get_extension (source, extension_name);
 	decsync_dir = e_source_decsync_get_decsync_dir (decsync_extension);
+	switch (kind) {
+		default:
+			g_warn_if_reached ();
+		case I_CAL_VEVENT_COMPONENT:
+			sync_type = "calendars";
+			break;
+		case I_CAL_VTODO_COMPONENT:
+			sync_type = "tasks";
+			break;
+		case I_CAL_VJOURNAL_COMPONENT:
+			sync_type = "memos";
+			break;
+	}
 	collection = e_source_decsync_get_collection (decsync_extension);
 	appid = e_source_decsync_get_appid (decsync_extension);
-	error = decsync_new (&priv->decsync, decsync_dir, "calendars", collection, appid);
+	error = decsync_new (&priv->decsync, decsync_dir, sync_type, collection, appid);
 	if (error != 0) {
 		return FALSE;
 	}
@@ -3766,13 +3812,11 @@ cal_backend_decsync_initable_init (GInitable *initable,
                                  GCancellable *cancellable,
                                  GError **error)
 {
-	ESource *source;
 	ECalBackendDecsyncPrivate *priv;
 
-	source = e_backend_get_source (E_BACKEND (initable));
 	priv = E_CAL_BACKEND_DECSYNC (initable)->priv;
 
-	return getDecsyncFromSource (priv, source);
+	return getDecsyncFromSource (priv, E_CAL_BACKEND (initable));
 }
 
 static void

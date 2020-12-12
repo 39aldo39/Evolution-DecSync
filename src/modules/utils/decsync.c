@@ -113,9 +113,7 @@ config_decsync_update_color (Context *context)
 	const gchar *extension_name, *decsync_dir, *collection;
 	gchar *color;
 
-	extension_name = E_SOURCE_EXTENSION_CALENDAR;
-	if (!e_source_has_extension (context->scratch_source, extension_name))
-		return;
+	if (g_strcmp0(context->sync_type, "contacts") == 0) return;
 
 	extension_name = E_SOURCE_EXTENSION_DECSYNC_BACKEND;
 	extension = e_source_get_extension (context->scratch_source, extension_name);
@@ -127,7 +125,14 @@ config_decsync_update_color (Context *context)
 	else
 		color = g_strdup (context->orig_color);
 
-	extension_name = E_SOURCE_EXTENSION_CALENDAR;
+	if (g_strcmp0 (context->sync_type, "calendars") == 0)
+		extension_name = E_SOURCE_EXTENSION_CALENDAR;
+	else if (g_strcmp0 (context->sync_type, "tasks") == 0)
+		extension_name = E_SOURCE_EXTENSION_TASK_LIST;
+	else if (g_strcmp0 (context->sync_type, "memos") == 0)
+		extension_name = E_SOURCE_EXTENSION_MEMO_LIST;
+	else
+		return;
 	extension = e_source_get_extension (context->scratch_source, extension_name);
 	e_source_selectable_set_color (E_SOURCE_SELECTABLE (extension), color);
 	g_free (color);
@@ -411,8 +416,15 @@ config_decsync_insert_widgets (const gchar *sync_type, const gchar *sync_type_ti
 	context->sync_type = sync_type;
 	context->sync_type_title = sync_type_title;
 
-	extension_name = E_SOURCE_EXTENSION_CALENDAR;
-	if (e_source_has_extension (scratch_source, extension_name)) {
+	if (g_strcmp0 (sync_type, "calendars") == 0)
+		extension_name = E_SOURCE_EXTENSION_CALENDAR;
+	else if (g_strcmp0 (sync_type, "tasks") == 0)
+		extension_name = E_SOURCE_EXTENSION_TASK_LIST;
+	else if (g_strcmp0 (sync_type, "memos") == 0)
+		extension_name = E_SOURCE_EXTENSION_MEMO_LIST;
+	else
+		extension_name = NULL;
+	if (extension_name != NULL) {
 		extension = e_source_get_extension (scratch_source, extension_name);
 		context->orig_color = e_source_selectable_dup_color (E_SOURCE_SELECTABLE (extension));
 	} else {
@@ -546,8 +558,15 @@ config_decsync_commit_changes (ESourceConfigBackend *backend, ESource *scratch_s
 		e_source_decsync_set_appid (E_SOURCE_DECSYNC (extension), new_appid);
 	}
 
-	extension_name = E_SOURCE_EXTENSION_CALENDAR;
-	if (e_source_has_extension (scratch_source, extension_name)) {
+	if (g_strcmp0 (context->sync_type, "calendars") == 0)
+		extension_name = E_SOURCE_EXTENSION_CALENDAR;
+	else if (g_strcmp0 (context->sync_type, "tasks") == 0)
+		extension_name = E_SOURCE_EXTENSION_TASK_LIST;
+	else if (g_strcmp0 (context->sync_type, "memos") == 0)
+		extension_name = E_SOURCE_EXTENSION_MEMO_LIST;
+	else
+		extension_name = NULL;
+	if (extension_name != NULL) {
 		extension = e_source_get_extension (scratch_source, extension_name);
 		new_color = e_source_selectable_get_color (E_SOURCE_SELECTABLE (extension));
 		old_color = getInfo (decsync_dir, context->sync_type, collection, "color", NULL);
