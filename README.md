@@ -38,6 +38,7 @@ sudo apt install \
 ### Fedora
 ```
 sudo dnf install \
+	cmake \
 	git \
 	gcc \
 	meson \
