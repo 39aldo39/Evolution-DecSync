@@ -6,11 +6,11 @@ project('evolution-decsync', ['c'],
 )
 
 # Dependencies
-libedatabook   = dependency('libedata-book-1.2')
-libedatacal    = dependency('libedata-cal-2.0')
-evolutionshell = dependency('evolution-shell-3.0')
+libedatabook   = dependency('libedata-book-1.2', version: '>=3.36')
+libedatacal    = dependency('libedata-cal-2.0', version: '>=3.36')
+evolutionshell = dependency('evolution-shell-3.0', version: '>=3.36')
 jsonc          = dependency('json-c')
-libdecsync     = dependency('decsync', version: '>=1.7.0')
+libdecsync     = dependency('decsync', version: '>=2.0.1')
 
 # Special directories
 LIB_INSTALL_DIR      = join_paths(get_option('prefix'), 'lib')
