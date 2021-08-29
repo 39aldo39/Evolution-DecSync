@@ -3,7 +3,7 @@ Version: 1.3.0-evolution-3.30
 Architecture: amd64
 Maintainer: Aldo Gunsing <dev@aldogunsing.nl>
 Homepage: https://github.com/39aldo39/Evolution-DecSync
-Depends: evolution (<< 3.34), libdecsync (>= 1.7.0), libjson-c3
+Depends: evolution (<< 3.34), libdecsync (>= 2.0.1), libjson-c3
 Description: DecSync synchronization for Evolution
  DecSync for Evolution is an Evolution plugin which synchronizes contacts and calendars using DecSync.
  To start synchronizing, all you have to do is synchronize the DecSync directory (by default ~/.local/share/decsync), using for example Syncthing.
