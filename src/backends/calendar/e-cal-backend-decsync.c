@@ -297,7 +297,8 @@ free_calendar_data (ECalBackendDecsync *cbfile)
 
 	g_rec_mutex_lock (&priv->idle_save_rmutex);
 
-	e_intervaltree_destroy (priv->interval_tree);
+	if (priv->interval_tree)
+		e_intervaltree_destroy (priv->interval_tree);
 	priv->interval_tree = NULL;
 
 	free_calendar_components (priv->comp_uid_hash, priv->vcalendar);
@@ -358,7 +359,7 @@ e_cal_backend_decsync_finalize (GObject *object)
 	G_OBJECT_CLASS (e_cal_backend_decsync_parent_class)->finalize (object);
 }
 
-/* Looks up an component by its UID on the backend's component hash table
+/* Looks up a component by its UID on the backend's component hash table
  * and returns TRUE if any event (regardless whether it is the master or a child)
  * with that UID exists */
 static gboolean
@@ -467,10 +468,11 @@ e_cal_backend_decsync_get_backend_property (ECalBackend *backend,
 
 	} else if (g_str_equal (prop_name, E_CAL_BACKEND_PROPERTY_CAL_EMAIL_ADDRESS) ||
 		   g_str_equal (prop_name, E_CAL_BACKEND_PROPERTY_ALARM_EMAIL_ADDRESS)) {
-		/* A decsync backend has no particular email address associated
-		 * with it (although that would be a useful feature some day).
-		 */
-		return NULL;
+		ESourceLocal *local_extension;
+
+		local_extension = e_source_get_extension (e_backend_get_source (E_BACKEND (backend)), E_SOURCE_EXTENSION_LOCAL_BACKEND);
+
+		return e_source_local_dup_email_address (local_extension);
 
 	} else if (g_str_equal (prop_name, E_CAL_BACKEND_PROPERTY_DEFAULT_OBJECT)) {
 		ECalComponent *comp;
@@ -1871,7 +1873,7 @@ e_cal_backend_decsync_create_objects_with_decsync (ECalBackendSync *backend,
                                    EDataCal *cal,
                                    GCancellable *cancellable,
                                    const GSList *in_calobjs,
-                                   guint32 opflags,
+                                   ECalOperationFlags opflags,
                                    GSList **uids,
                                    GSList **new_components,
                                    GError **error,
@@ -2032,7 +2034,7 @@ e_cal_backend_decsync_create_objects (ECalBackendSync *backend,
                                    EDataCal *cal,
                                    GCancellable *cancellable,
                                    const GSList *in_calobjs,
-                                   guint32 opflags,
+                                   ECalOperationFlags opflags,
                                    GSList **uids,
                                    GSList **new_components,
                                    GError **error)
@@ -2087,7 +2089,7 @@ e_cal_backend_decsync_modify_objects_with_decsync (ECalBackendSync *backend,
                                    GCancellable *cancellable,
                                    const GSList *calobjs,
                                    ECalObjModType mod,
-                                   guint32 opflags,
+                                   ECalOperationFlags opflags,
                                    GSList **old_components,
                                    GSList **new_components,
                                    GError **error,
@@ -2483,12 +2485,92 @@ e_cal_backend_decsync_modify_objects (ECalBackendSync *backend,
                                    GCancellable *cancellable,
                                    const GSList *calobjs,
                                    ECalObjModType mod,
-                                   guint32 opflags,
+                                   ECalOperationFlags opflags,
                                    GSList **old_components,
                                    GSList **new_components,
                                    GError **error)
 {
 	e_cal_backend_decsync_modify_objects_with_decsync (backend, cal, cancellable, calobjs, mod, opflags, old_components, new_components, error, TRUE);
+}
+
+static void
+e_cal_backend_decsync_discard_alarm_sync (ECalBackendSync *backend,
+				       EDataCal *cal,
+				       GCancellable *cancellable,
+				       const gchar *uid,
+				       const gchar *rid,
+				       const gchar *auid,
+				       ECalOperationFlags opflags,
+				       GError **error)
+{
+	ECalBackendDecsync *cbfile;
+	ECalBackendDecsyncPrivate *priv;
+	ECalBackendDecsyncObject *obj_data;
+	ECalComponent *comp = NULL;
+
+	cbfile = E_CAL_BACKEND_DECSYNC (backend);
+	priv = cbfile->priv;
+
+	if (priv->vcalendar == NULL) {
+		g_propagate_error (error, ECC_ERROR (E_CAL_CLIENT_ERROR_OBJECT_NOT_FOUND));
+		return;
+	}
+
+	g_return_if_fail (uid != NULL);
+	g_return_if_fail (priv->comp_uid_hash != NULL);
+
+	g_rec_mutex_lock (&priv->idle_save_rmutex);
+
+	obj_data = g_hash_table_lookup (priv->comp_uid_hash, uid);
+	if (!obj_data) {
+		g_rec_mutex_unlock (&priv->idle_save_rmutex);
+		g_propagate_error (error, ECC_ERROR (E_CAL_CLIENT_ERROR_OBJECT_NOT_FOUND));
+		return;
+	}
+
+	if (rid && *rid) {
+		comp = g_hash_table_lookup (obj_data->recurrences, rid);
+
+		if (comp) {
+			g_object_ref (comp);
+		} else if (obj_data->full_object) {
+			ICalComponent *icomp;
+			ICalTime *itt;
+
+			itt = i_cal_time_new_from_string (rid);
+			icomp = e_cal_util_construct_instance (
+				e_cal_component_get_icalcomponent (obj_data->full_object),
+				itt);
+			g_object_unref (itt);
+
+			if (icomp)
+				comp = e_cal_component_new_from_icalcomponent (icomp);
+		}
+	} else if (obj_data->full_object) {
+		comp = g_object_ref (obj_data->full_object);
+	}
+
+	if (comp) {
+		if (e_cal_util_set_alarm_acknowledged (comp, auid, 0)) {
+			GSList *calobjs;
+
+			calobjs = g_slist_prepend (NULL, e_cal_component_get_as_string (comp));
+
+			e_cal_backend_decsync_modify_objects (backend, cal, cancellable, calobjs,
+				(rid && *rid) ? E_CAL_OBJ_MOD_THIS : E_CAL_OBJ_MOD_ALL,
+				opflags, NULL, NULL, error);
+
+			g_slist_free_full (calobjs, g_free);
+		} else {
+			g_propagate_error (error, ECC_ERROR (E_CAL_CLIENT_ERROR_OBJECT_NOT_FOUND));
+		}
+
+		g_object_unref (comp);
+	} else {
+		g_propagate_error (error, ECC_ERROR (E_CAL_CLIENT_ERROR_OBJECT_NOT_FOUND));
+	}
+
+	g_rec_mutex_unlock (&priv->idle_save_rmutex);
 }
 
 /**
@@ -2605,7 +2687,7 @@ remove_instance (ECalBackendDecsync *cbfile,
 
 		e_cal_util_remove_instances_ex (
 			e_cal_component_get_icalcomponent (obj_data->full_object),
-			rid_struct, E_CAL_OBJ_MOD_THIS, resolve_tzid_cb, &rtd);
+			rid_struct, mod, resolve_tzid_cb, &rtd);
 
 		resolve_tzid_data_clear (&rtd);
 		g_clear_object (&rid_struct);
@@ -2717,7 +2799,7 @@ e_cal_backend_decsync_remove_objects_with_decsync (ECalBackendSync *backend,
                                    GCancellable *cancellable,
                                    const GSList *ids,
                                    ECalObjModType mod,
-                                   guint32 opflags,
+                                   ECalOperationFlags opflags,
                                    GSList **old_components,
                                    GSList **new_components,
                                    GError **error,
@@ -2910,7 +2992,7 @@ e_cal_backend_decsync_remove_objects (ECalBackendSync *backend,
                                    GCancellable *cancellable,
                                    const GSList *ids,
                                    ECalObjModType mod,
-                                   guint32 opflags,
+                                   ECalOperationFlags opflags,
                                    GSList **old_components,
                                    GSList **new_components,
                                    GError **error)
@@ -2921,6 +3003,7 @@ e_cal_backend_decsync_remove_objects (ECalBackendSync *backend,
 static gboolean
 cancel_received_object (ECalBackendDecsync *cbfile,
                         ECalComponent *comp,
+                        ECalObjModType mod,
                         ECalComponent **old_comp,
                         ECalComponent **new_comp)
 {
@@ -2945,7 +3028,7 @@ cancel_received_object (ECalBackendDecsync *cbfile,
 	rid = e_cal_component_get_recurid_as_string (comp);
 	if (rid && *rid) {
 		obj_data = remove_instance (
-			cbfile, obj_data, uid, rid, E_CAL_OBJ_MOD_THIS,
+			cbfile, obj_data, uid, rid, mod,
 			old_comp, new_comp, NULL);
 		if (obj_data && obj_data->full_object && !*new_comp) {
 			*new_comp = e_cal_component_clone (obj_data->full_object);
@@ -3089,7 +3172,7 @@ static void
 e_cal_backend_decsync_receive_objects_with_decsync (ECalBackendSync *backend,
                                                  GCancellable *cancellable,
                                                  const gchar *calobj,
-                                                 guint32 opflags,
+                                                 ECalOperationFlags opflags,
                                                  gboolean update_decsync,
                                                  GError **error)
 {
@@ -3133,7 +3216,7 @@ e_cal_backend_decsync_receive_objects_with_decsync (ECalBackendSync *backend,
 
 	kind = i_cal_component_isa (toplevel_comp);
 	if (kind != I_CAL_VCALENDAR_COMPONENT) {
-		/* If its not a VCALENDAR, make it one to simplify below */
+		/* If it is not a VCALENDAR, make it one to simplify below */
 		icomp = toplevel_comp;
 		toplevel_comp = e_cal_util_new_top_level ();
 		if (i_cal_component_get_method (icomp) == I_CAL_METHOD_CANCEL)
@@ -3244,6 +3327,7 @@ e_cal_backend_decsync_receive_objects_with_decsync (ECalBackendSync *backend,
 	for (link = comps; link; link = g_slist_next (link)) {
 		ECalComponent *old_component = NULL;
 		ECalComponent *new_component = NULL;
+		ECalObjModType mod = E_CAL_OBJ_MOD_THIS;
 		ICalTime *current;
 		const gchar *uid;
 		gchar *rid;
@@ -3274,6 +3358,17 @@ e_cal_backend_decsync_receive_objects_with_decsync (ECalBackendSync *backend,
 		uid = e_cal_component_get_uid (comp);
 		rid = e_cal_component_get_recurid_as_string (comp);
 
+		if (rid) {
+			ECalComponentRange *range;
+
+			range = e_cal_component_get_recurid (comp);
+
+			if (range && e_cal_component_range_get_kind (range) == E_CAL_COMPONENT_RANGE_THISFUTURE)
+				mod = E_CAL_OBJ_MOD_THIS_AND_FUTURE;
+
+			e_cal_component_range_free (range);
+		}
+
 		if (e_cal_util_component_has_property (subcomp, I_CAL_METHOD_PROPERTY))
 			method = i_cal_component_get_method (subcomp);
 		else
@@ -3295,7 +3390,7 @@ e_cal_backend_decsync_receive_objects_with_decsync (ECalBackendSync *backend,
 					ECalComponent *ignore_comp = NULL;
 
 					remove_instance (
-						cbfile, obj_data, uid, rid, E_CAL_OBJ_MOD_THIS,
+						cbfile, obj_data, uid, rid, mod,
 						&old_component, &ignore_comp, NULL);
 
 					if (ignore_comp)
@@ -3356,7 +3451,7 @@ e_cal_backend_decsync_receive_objects_with_decsync (ECalBackendSync *backend,
 			goto error;
 			break;
 		case I_CAL_METHOD_CANCEL:
-			if (cancel_received_object (cbfile, comp, &old_component, &new_component)) {
+			if (cancel_received_object (cbfile, comp, mod, &old_component, &new_component)) {
 				ECalComponentId *id;
 
 				id = e_cal_component_get_id (comp);
@@ -3431,7 +3526,7 @@ e_cal_backend_decsync_receive_objects (ECalBackendSync *backend,
                                     EDataCal *cal,
                                     GCancellable *cancellable,
                                     const gchar *calobj,
-                                    guint32 opflags,
+                                    ECalOperationFlags opflags,
                                     GError **error)
 {
 	e_cal_backend_decsync_receive_objects_with_decsync (backend, cancellable, calobj, opflags, TRUE, error);
@@ -3442,7 +3537,7 @@ e_cal_backend_decsync_send_objects (ECalBackendSync *backend,
                                  EDataCal *cal,
                                  GCancellable *cancellable,
                                  const gchar *calobj,
-                                 guint32 opflags,
+                                 ECalOperationFlags opflags,
                                  GSList **users,
                                  gchar **modified_calobj,
                                  GError **perror)
@@ -3854,6 +3949,7 @@ e_cal_backend_decsync_class_init (ECalBackendDecsyncClass *class)
 	sync_class->add_timezone_sync = e_cal_backend_decsync_add_timezone;
 	sync_class->get_free_busy_sync = e_cal_backend_decsync_get_free_busy;
 	sync_class->refresh_sync = ecal_backend_decsync_refresh_sync;
+	sync_class->discard_alarm_sync = e_cal_backend_decsync_discard_alarm_sync;
 
 	/* Register our ESource extension. */
 	E_TYPE_SOURCE_DECSYNC;

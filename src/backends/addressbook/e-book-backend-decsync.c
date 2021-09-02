@@ -292,15 +292,16 @@ safe_name_for_photo (EBookBackendDecsync *bf,
                      EContactPhoto *photo,
                      EContactField field)
 {
-	gchar         *fullname = NULL, *name, *str;
-	gchar         *suffix = NULL;
-	gint           i = 0;
+	gchar *fullname = NULL, *name, *str;
+	gchar *suffix = NULL;
+	gint i = 0;
 
 	g_return_val_if_fail (photo->type == E_CONTACT_PHOTO_TYPE_INLINED, NULL);
 
 	/* Get a suitable filename extension */
 	if (photo->data.inlined.mime_type != NULL &&
-	    photo->data.inlined.mime_type[0] != '\0') {
+	    photo->data.inlined.mime_type[0] != '\0' &&
+	    g_ascii_strcasecmp (photo->data.inlined.mime_type, "image/X-EVOLUTION-UNKNOWN") != 0) {
 		suffix = g_uri_escape_string (
 			photo->data.inlined.mime_type,
 			NULL, TRUE);
@@ -326,11 +327,23 @@ safe_name_for_photo (EBookBackendDecsync *bf,
 		g_free (content_type);
 	}
 
+	/* Replace any percent in the text with a dash, to avoid escaping issues in URI-s */
+	str = suffix;
+	while (str = strchr (str, '%'), str) {
+		*str = '-';
+	}
+
 	/* Create a filename based on the uid/field */
 	name = g_strconcat (
 		e_contact_get_const (contact, E_CONTACT_UID), "_",
 		e_contact_field_name (field), NULL);
 	name = g_strdelimit (name, NULL, '_');
+
+	/* Replace any percent in the text with a dash, to avoid escaping issues in URI-s */
+	str = name;
+	while (str = strchr (str, '%'), str) {
+		*str = '-';
+	}
 
 	do {
 		g_free (fullname);
@@ -1079,10 +1092,7 @@ book_backend_decsync_dispose (GObject *object)
 		bf->priv->cursors = NULL;
 	}
 
-	if (bf->priv->sqlitedb) {
-		g_object_unref (bf->priv->sqlitedb);
-		bf->priv->sqlitedb = NULL;
-	}
+	g_clear_object (&bf->priv->sqlitedb);
 
 	g_rw_lock_writer_unlock (&(bf->priv->lock));
 
@@ -1463,7 +1473,7 @@ book_backend_decsync_modify_contacts_sync_with_decsync (EBookBackendSync *backen
 			cursors_contact_removed (bf, E_CONTACT (link->data));
 		}
 
-		for (link = *out_contacts; link; link = g_slist_next (*out_contacts)) {
+		for (link = *out_contacts; link; link = g_slist_next (link)) {
 			cursors_contact_added (bf, E_CONTACT (link->data));
 		}
 	}
