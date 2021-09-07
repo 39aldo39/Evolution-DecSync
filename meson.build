@@ -1,5 +1,5 @@
 project('evolution-decsync', ['c'],
-  version: '2.0.0-evolution-3.38',
+  version: '2.0.0-1-evolution-3.38',
   meson_version: '>= 0.44.1',
   license: 'LGPL',
   default_options: ['prefix=/usr']
