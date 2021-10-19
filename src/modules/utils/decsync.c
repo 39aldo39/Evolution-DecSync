@@ -175,6 +175,7 @@ config_decsync_update_combo_box (Context *context)
 			GTK_DIALOG_DESTROY_WITH_PARENT,
 			GTK_MESSAGE_WARNING,
 			GTK_BUTTONS_OK,
+			"%s",
 			error_string);
 		title = _("DecSync");
 		gtk_window_set_title (GTK_WINDOW (dialog), title);
