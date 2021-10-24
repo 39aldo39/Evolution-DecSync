@@ -1825,6 +1825,62 @@ book_backend_decsync_get_contact_list_uids_sync (EBookBackendSync *backend,
 	return success;
 }
 
+static gboolean
+book_backend_decsync_gather_addresses_cb (gpointer ptr_name,
+				       gpointer ptr_email,
+				       gpointer user_data)
+{
+	GPtrArray *array = user_data;
+	const gchar *email = ptr_email;
+
+	if (email && *email)
+		g_ptr_array_add (array, e_book_query_field_test (E_CONTACT_EMAIL, E_BOOK_QUERY_IS, email));
+
+	return TRUE;
+}
+
+static gboolean
+book_backend_decsync_contains_email_sync (EBookBackendSync *backend,
+				       const gchar *email_address,
+				       GCancellable *cancellable,
+				       GError **error)
+{
+	EBookQuery *book_query = NULL;
+	GPtrArray *array;
+	gchar *sexp = NULL;
+	gboolean success = FALSE;
+
+	g_return_val_if_fail (email_address != NULL, FALSE);
+
+	d (printf ("book_backend_decsync_contains_email_sync (%s)\n", email_address));
+
+	array = g_ptr_array_new_full (1, (GDestroyNotify) e_book_query_unref);
+
+	e_book_util_foreach_address (email_address, book_backend_decsync_gather_addresses_cb, array);
+
+	if (array->len > 0)
+		book_query = e_book_query_or (array->len, (EBookQuery **) array->pdata, FALSE);
+
+	if (book_query)
+		sexp = e_book_query_to_string (book_query);
+
+	if (sexp) {
+		GSList *uids = NULL;
+
+		success = book_backend_decsync_get_contact_list_uids_sync (backend, sexp,
+			&uids, cancellable, error);
+		success = success && uids != NULL;
+
+		g_slist_free_full (uids, g_free);
+	}
+
+	g_clear_pointer (&book_query, e_book_query_unref);
+	g_ptr_array_unref (array);
+	g_free (sexp);
+
+	return success;
+}
+
 static void
 book_backend_decsync_start_view (EBookBackend *backend,
                               EDataBookView *book_view)
@@ -2389,6 +2445,7 @@ e_book_backend_decsync_class_init (EBookBackendDecsyncClass *class)
 	backend_sync_class->get_contact_sync = book_backend_decsync_get_contact_sync;
 	backend_sync_class->get_contact_list_sync = book_backend_decsync_get_contact_list_sync;
 	backend_sync_class->get_contact_list_uids_sync = book_backend_decsync_get_contact_list_uids_sync;
+	backend_sync_class->contains_email_sync = book_backend_decsync_contains_email_sync;
 
 	backend_class = E_BOOK_BACKEND_CLASS (class);
 	backend_class->impl_get_backend_property = book_backend_decsync_get_backend_property;
