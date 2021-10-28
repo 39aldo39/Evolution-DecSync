@@ -2201,7 +2201,6 @@ e_cal_backend_decsync_modify_objects_with_decsync (ECalBackendSync *backend,
 		/* sanitize the component*/
 		sanitize_component (cbfile, comp);
 		rid = e_cal_component_get_recurid_as_string (comp);
-
 		/* handle mod_type */
 		switch (mod) {
 		case E_CAL_OBJ_MOD_THIS:
@@ -2313,7 +2312,7 @@ e_cal_backend_decsync_modify_objects_with_decsync (ECalBackendSync *backend,
 				obj_data->recurrences_list = g_list_remove (obj_data->recurrences_list, recurrence);
 				g_hash_table_remove (obj_data->recurrences, rid);
 			} else {
-				if (*old_components)
+				if (old_components) // TODO: upstream bug (was *old_components)
 					*old_components = g_slist_prepend (*old_components, obj_data->full_object ? e_cal_component_clone (obj_data->full_object) : NULL);
 			}
 
@@ -2464,6 +2463,33 @@ e_cal_backend_decsync_modify_objects_with_decsync (ECalBackendSync *backend,
 			const gchar *uid;
 			gchar *object;
 			uid = i_cal_component_get_uid (e_cal_component_get_icalcomponent (l->data));
+			e_cal_backend_decsync_get_ical (backend, NULL, uid, NULL, TRUE, &object, NULL);
+
+			path[0] = "resources";
+			path[1] = uid;
+			key_string = json_object_to_json_string (NULL);
+			value_json = json_object_new_string (object);
+			value_string = json_object_to_json_string (value_json);
+			decsync_set_entry (priv->decsync, path, 2, key_string, value_string);
+			json_object_put (value_json);
+
+			g_free (object);
+		}
+		for (l = *old_components; l; l = l->next) {
+			const gchar *uid;
+			gchar *object;
+			const GSList *l_processed;
+			gboolean is_processed = FALSE;
+			uid = i_cal_component_get_uid (e_cal_component_get_icalcomponent (l->data));
+			for (l_processed = *new_components; l_processed; l_processed = l_processed->next) {
+				const gchar *uid_processed;
+				uid_processed = i_cal_component_get_uid (e_cal_component_get_icalcomponent (l_processed->data));
+				if (g_strcmp0 (uid, uid_processed) == 0) {
+					is_processed = TRUE;
+					break;
+				}
+			}
+			if (is_processed) continue;
 			e_cal_backend_decsync_get_ical (backend, NULL, uid, NULL, TRUE, &object, NULL);
 
 			path[0] = "resources";
