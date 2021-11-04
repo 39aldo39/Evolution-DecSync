@@ -901,6 +901,7 @@ scan_vcalendar (ECalBackendDecsync *cbfile)
 			if (e_cal_component_set_icalcomponent (comp, icomp)) {
 				/* Thus it's not freed while being used in the 'comp' */
 				g_object_ref (icomp);
+				i_cal_object_set_owner (I_CAL_OBJECT (icomp), G_OBJECT (priv->vcalendar));
 
 				check_dup_uid (cbfile, comp);
 
