@@ -11,7 +11,7 @@ jobs:
     steps:
       - uses: actions/checkout@v2
       - run: sudo apt install meson ninja-build libjson-c-dev libebook1.2-dev libedata-book1.2-dev libedata-cal2.0-dev evolution-dev
-      - run: git clone https://github.com/39aldo39/libdecsync && cd ./libdecsync && git checkout v1.7.1 && make && sudo make install
+      - run: git clone https://github.com/39aldo39/libdecsync && cd ./libdecsync && git checkout v2.2.1 && make && sudo make install
       - run: meson build
       - run: ninja -C build
       - run: ./create-deb.sh
