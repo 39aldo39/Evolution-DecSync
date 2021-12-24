@@ -2541,10 +2541,10 @@ e_cal_backend_decsync_modify_objects_with_decsync (ECalBackendSync *backend,
 			gchar *object;
 			const GSList *l_processed;
 			gboolean is_processed = FALSE;
-			uid = i_cal_component_get_uid (e_cal_component_get_icalcomponent (l->data));
+			uid = icalcomponent_get_uid (e_cal_component_get_icalcomponent (l->data));
 			for (l_processed = *new_components; l_processed; l_processed = l_processed->next) {
 				const gchar *uid_processed;
-				uid_processed = i_cal_component_get_uid (e_cal_component_get_icalcomponent (l_processed->data));
+				uid_processed = icalcomponent_get_uid (e_cal_component_get_icalcomponent (l_processed->data));
 				if (g_strcmp0 (uid, uid_processed) == 0) {
 					is_processed = TRUE;
 					break;
