@@ -1,5 +1,5 @@
 Package: evolution-decsync
-Version: 2.0.0-evolution-3.30
+Version: 2.0.1-evolution-3.30
 Architecture: amd64
 Maintainer: Aldo Gunsing <dev@aldogunsing.nl>
 Homepage: https://github.com/39aldo39/Evolution-DecSync
