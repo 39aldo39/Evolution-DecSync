@@ -463,6 +463,7 @@ e_cal_backend_decsync_get_backend_property (ECalBackend *backend,
 			E_CAL_STATIC_CAPABILITY_ALARM_DESCRIPTION,
 			E_CAL_STATIC_CAPABILITY_TASK_CAN_RECUR,
 			E_CAL_STATIC_CAPABILITY_COMPONENT_COLOR,
+			E_CAL_STATIC_CAPABILITY_TASK_ESTIMATED_DURATION,
 			E_CAL_STATIC_CAPABILITY_REFRESH_SUPPORTED,
 			NULL);
 
@@ -2609,10 +2610,10 @@ e_cal_backend_decsync_discard_alarm_sync (ECalBackendSync *backend,
  *         TODO: E_CAL_OBJ_MOD_ONLY_THIS
  * @uid    pointer to UID which must remain valid even if the object gets
  *         removed
- * @rid    NULL, "", or non-empty string when manipulating a specific recurrence;
- *         also must remain valid
+ * @rid:   (nullable): %NULL, "", or non-empty string when manipulating a
+ *         specific recurrence; also must remain valid
  * @error  may be NULL if caller is not interested in errors
- * @return modified object or NULL if it got removed
+ * @return: (nullable) modified object or %NULL if it got removed
  */
 static ECalBackendDecsyncObject *
 remove_instance (ECalBackendDecsync *cbfile,
