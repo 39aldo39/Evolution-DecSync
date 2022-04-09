@@ -2482,6 +2482,7 @@ e_cal_backend_decsync_modify_objects_with_decsync (ECalBackendSync *backend,
 			gchar *object;
 			const GSList *l_processed;
 			gboolean is_processed = FALSE;
+			if (l->data == NULL) continue;
 			uid = i_cal_component_get_uid (e_cal_component_get_icalcomponent (l->data));
 			for (l_processed = *new_components; l_processed; l_processed = l_processed->next) {
 				const gchar *uid_processed;
