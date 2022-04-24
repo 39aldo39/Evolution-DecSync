@@ -6,9 +6,9 @@ project('evolution-decsync', ['c'],
 )
 
 # Dependencies
-libedatabook   = dependency('libedata-book-1.2', version: '>=3.40')
-libedatacal    = dependency('libedata-cal-2.0', version: '>=3.40')
-evolutionshell = dependency('evolution-shell-3.0', version: '>=3.40')
+libedatabook   = dependency('libedata-book-1.2', version: '>=3.44')
+libedatacal    = dependency('libedata-cal-2.0', version: '>=3.44')
+evolutionshell = dependency('evolution-shell-3.0', version: '>=3.44')
 jsonc          = dependency('json-c')
 libdecsync     = dependency('decsync', version: '>=2.0.1')
 
