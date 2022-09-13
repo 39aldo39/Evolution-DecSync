@@ -41,7 +41,6 @@
 #include <glib/gi18n-lib.h>
 
 #include <e-source/e-source-decsync.h>
-#include <json.h>
 #include <libdecsync.h>
 
 #include "e-book-backend-decsync.h"
@@ -819,8 +818,9 @@ do_create (EBookBackendDecsync *bf,
 	PhotoModifiedStatus status = STATUS_NORMAL;
 	guint ii, length;
 	GError *local_error = NULL;
-	const gchar *path[2], *key_string, *value_string;
-	json_object *value_json;
+	const gchar *path[2];
+	JsonNode *key_node, *value_node;
+	gchar *key_string, *value_string;
 
 	length = g_strv_length ((gchar **) vcards);
 
@@ -846,11 +846,16 @@ do_create (EBookBackendDecsync *bf,
 
 			path[0] = "resources";
 			path[1] = id;
-			key_string = json_object_to_json_string (NULL);
-			value_json = json_object_new_string (vcards[ii]);
-			value_string = json_object_to_json_string (value_json);
+			key_node = json_node_new (JSON_NODE_NULL);
+			key_string = json_to_string (key_node, FALSE);
+			value_node = json_node_new (JSON_NODE_VALUE);
+			json_node_set_string (value_node, vcards[ii]);
+			value_string = json_to_string (value_node, FALSE);
 			decsync_set_entry(bf->priv->decsync, path, 2, key_string, value_string);
-			json_object_put (value_json);
+			json_node_free (key_node);
+			g_free (key_string);
+			json_node_free (value_node);
+			g_free (value_string);
 
 			g_free (id);
 		}
@@ -1289,8 +1294,9 @@ book_backend_decsync_modify_contacts_sync_with_decsync (EBookBackendSync *backen
 	PhotoModifiedStatus status = STATUS_NORMAL;
 	GSList *old_contacts = NULL;
 	guint ii, length;
-	const gchar *path[2], *key_string, *value_string;
-	json_object *value_json;
+	const gchar *path[2];
+	JsonNode *key_node, *value_node;
+	gchar *key_string, *value_string;
 
 	length = g_strv_length ((gchar **) vcards);
 
@@ -1326,11 +1332,16 @@ book_backend_decsync_modify_contacts_sync_with_decsync (EBookBackendSync *backen
 		if (update_decsync) {
 			path[0] = "resources";
 			path[1] = id;
-			key_string = json_object_to_json_string (NULL);
-			value_json = json_object_new_string (vcards[ii]);
-			value_string = json_object_to_json_string (value_json);
+			key_node = json_node_new (JSON_NODE_NULL);
+			key_string = json_to_string (key_node, FALSE);
+			value_node = json_node_new (JSON_NODE_VALUE);
+			json_node_set_string (value_node, vcards[ii]);
+			value_string = json_to_string (value_node, FALSE);
 			decsync_set_entry (bf->priv->decsync, path, 2, key_string, value_string);
-			json_object_put (value_json);
+			json_node_free (key_node);
+			g_free (key_string);
+			json_node_free (value_node);
+			g_free (value_string);
 		}
 
 		if (!e_book_sqlite_get_contact (bf->priv->sqlitedb,
@@ -1512,7 +1523,9 @@ book_backend_decsync_remove_contacts_sync_with_decsync (EBookBackendSync *backen
 	const GSList     *l;
 	gboolean success = TRUE;
 	guint ii, length;
-	const gchar *path[2], *key_string, *value_string;
+	const gchar *path[2];
+	JsonNode *key_node, *value_node;
+	gchar *key_string, *value_string;
 
 	g_return_val_if_fail (out_removed_uids != NULL, FALSE);
 
@@ -1533,9 +1546,15 @@ book_backend_decsync_remove_contacts_sync_with_decsync (EBookBackendSync *backen
 		if (update_decsync) {
 			path[0] = "resources";
 			path[1] = uids[ii];
-			key_string = json_object_to_json_string (NULL);
-			value_string = json_object_to_json_string (NULL);
+			key_node = json_node_new (JSON_NODE_NULL);
+			key_string = json_to_string (key_node, FALSE);
+			value_node = json_node_new (JSON_NODE_NULL);
+			value_string = json_to_string (value_node, FALSE);
 			decsync_set_entry (bf->priv->decsync, path, 2, key_string, value_string);
+			json_node_free (key_node);
+			g_free (key_string);
+			json_node_free (value_node);
+			g_free (value_string);
 		}
 
 		/* First load the EContacts which need to be removed, we might delete some
@@ -2216,21 +2235,35 @@ infoListener (const gchar **path, int len, const char *datetime, const char *key
 {
 	Extra *extra;
 	const gchar *info;
-	json_object *key, *value;
+	JsonNode *key_node, *value_node;
+	GError *error = NULL;
 
 	extra = (Extra*)extra_void;
-	key = json_tokener_parse (key_string);
-	value = json_tokener_parse (value_string);
-	info = json_object_get_string (key);
-	if (strcmp (info, "deleted") == 0) {
-		if (json_object_get_boolean (value) == TRUE) {
+	key_node = json_from_string (key_string, &error);
+	if (error != NULL) {
+		g_warning ("Invalid JSON for info key: %s", key_string);
+		g_error_free (error);
+		return;
+	}
+	value_node = json_from_string (value_string, &error);
+	if (error != NULL) {
+		g_warning ("Invalid JSON for info value: %s", value_string);
+		json_node_free (key_node);
+		g_error_free (error);
+		return;
+	}
+	info = json_node_get_string (key_node);
+	if (g_strcmp0 (info, "deleted") == 0) {
+		if (json_node_get_boolean (value_node) == TRUE) {
 			deleteBook (extra);
 		}
-	} else if (strcmp (info, "name") == 0) {
-		updateName(extra, json_object_get_string (value));
+	} else if (g_strcmp0 (info, "name") == 0) {
+		updateName(extra, json_node_get_string (value_node));
 	} else {
 		g_warning ("Unknown info key: %s", info);
 	}
+	json_node_free (key_node);
+	json_node_free (value_node);
 }
 
 static void
@@ -2238,21 +2271,36 @@ resourcesListener (const gchar **path, int len, const char *datetime, const char
 {
 	Extra *extra;
 	const gchar *uid, *vcard;
-	json_object *value;
+	JsonNode *key_node, *value_node;
+	GError *error = NULL;
 
 	extra = (Extra*)extra_void;
-	value = json_tokener_parse (value_string);
+	key_node = json_from_string (key_string, &error);
+	if (error != NULL) {
+		g_warning ("Invalid JSON for resource key: %s", key_string);
+		g_error_free (error);
+		return;
+	}
+	value_node = json_from_string (value_string, &error);
+	if (error != NULL) {
+		g_warning ("Invalid JSON for resource value: %s", value_string);
+		json_node_free (key_node);
+		g_error_free (error);
+		return;
+	}
 	if (len != 1) {
 		g_warning ("Invalid resources path size %i", len);
 		return;
 	}
 	uid = path[0];
-	if (value == NULL) {
+	if (json_node_is_null (value_node)) {
 		removeContacts(uid, extra);
 	} else {
-		vcard = json_object_get_string (value);
+		vcard = json_node_get_string (value_node);
 		updateContacts(uid, vcard, extra);
 	}
+	json_node_free (key_node);
+	json_node_free (value_node);
 }
 
 static gboolean

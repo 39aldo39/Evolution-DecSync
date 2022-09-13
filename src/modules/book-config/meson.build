@@ -9,7 +9,6 @@ shared_library(
   ],
   name_prefix: '',
   dependencies: [
-    jsonc,
     libdecsync,
     libedatabook,
     evolutionshell

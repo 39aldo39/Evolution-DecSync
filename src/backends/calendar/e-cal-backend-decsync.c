@@ -34,7 +34,6 @@
 
 #include <libedataserver/libedataserver.h>
 #include <e-source/e-source-decsync.h>
-#include <json.h>
 #include <libdecsync.h>
 
 #include "e-cal-backend-decsync-events.h"
@@ -1885,8 +1884,9 @@ e_cal_backend_decsync_create_objects_with_decsync (ECalBackendSync *backend,
 	ECalBackendDecsyncPrivate *priv;
 	GSList *icomps = NULL;
 	const GSList *l;
-	const gchar *path[2], *key_string, *value_string;
-	json_object *value_json;
+	const gchar *path[2];
+	JsonNode *key_node, *value_node;
+	gchar *key_string, *value_string;
 
 	cbfile = E_CAL_BACKEND_DECSYNC (backend);
 	priv = cbfile->priv;
@@ -2019,11 +2019,16 @@ e_cal_backend_decsync_create_objects_with_decsync (ECalBackendSync *backend,
 
 			path[0] = "resources";
 			path[1] = l->data;
-			key_string = json_object_to_json_string (NULL);
-			value_json = json_object_new_string (object);
-			value_string = json_object_to_json_string (value_json);
+			key_node = json_node_new (JSON_NODE_NULL);
+			key_string = json_to_string (key_node, FALSE);
+			value_node = json_node_new (JSON_NODE_VALUE);
+			json_node_set_string (value_node, object);
+			value_string = json_to_string (value_node, FALSE);
 			decsync_set_entry (priv->decsync, path, 2, key_string, value_string);
-			json_object_put (value_json);
+			json_node_free (key_node);
+			g_free (key_string);
+			json_node_free (value_node);
+			g_free (value_string);
 
 			g_free (object);
 		}
@@ -2102,8 +2107,9 @@ e_cal_backend_decsync_modify_objects_with_decsync (ECalBackendSync *backend,
 	GSList *icomps = NULL;
 	const GSList *l;
 	ResolveTzidData rtd;
-	const gchar *path[2], *key_string, *value_string;
-	json_object *value_json;
+	const gchar *path[2];
+	JsonNode *key_node, *value_node;
+	gchar *key_string, *value_string;
 
 	cbfile = E_CAL_BACKEND_DECSYNC (backend);
 	priv = cbfile->priv;
@@ -2469,11 +2475,16 @@ e_cal_backend_decsync_modify_objects_with_decsync (ECalBackendSync *backend,
 
 			path[0] = "resources";
 			path[1] = uid;
-			key_string = json_object_to_json_string (NULL);
-			value_json = json_object_new_string (object);
-			value_string = json_object_to_json_string (value_json);
+			key_node = json_node_new (JSON_NODE_NULL);
+			key_string = json_to_string (key_node, FALSE);
+			value_node = json_node_new (JSON_NODE_VALUE);
+			json_node_set_string (value_node, object);
+			value_string = json_to_string (value_node, FALSE);
 			decsync_set_entry (priv->decsync, path, 2, key_string, value_string);
-			json_object_put (value_json);
+			json_node_free (key_node);
+			g_free (key_string);
+			json_node_free (value_node);
+			g_free (value_string);
 
 			g_free (object);
 		}
@@ -2497,11 +2508,16 @@ e_cal_backend_decsync_modify_objects_with_decsync (ECalBackendSync *backend,
 
 			path[0] = "resources";
 			path[1] = uid;
-			key_string = json_object_to_json_string (NULL);
-			value_json = json_object_new_string (object);
-			value_string = json_object_to_json_string (value_json);
+			key_node = json_node_new (JSON_NODE_NULL);
+			key_string = json_to_string (key_node, FALSE);
+			value_node = json_node_new (JSON_NODE_VALUE);
+			json_node_set_string (value_node, object);
+			value_string = json_to_string (value_node, FALSE);
 			decsync_set_entry (priv->decsync, path, 2, key_string, value_string);
-			json_object_put (value_json);
+			json_node_free (key_node);
+			g_free (key_string);
+			json_node_free (value_node);
+			g_free (value_string);
 
 			g_free (object);
 		}
@@ -2837,8 +2853,9 @@ e_cal_backend_decsync_remove_objects_with_decsync (ECalBackendSync *backend,
 	ECalBackendDecsync *cbfile;
 	ECalBackendDecsyncPrivate *priv;
 	const GSList *l;
-	const gchar *path[2], *key_string, *value_string;
-	json_object *value_json = NULL;
+	const gchar *path[2];
+	JsonNode *key_node, *value_node;
+	gchar *key_string, *value_string;
 
 	cbfile = E_CAL_BACKEND_DECSYNC (backend);
 	priv = cbfile->priv;
@@ -3003,12 +3020,20 @@ e_cal_backend_decsync_remove_objects_with_decsync (ECalBackendSync *backend,
 
 			path[0] = "resources";
 			path[1] = uid;
-			key_string = json_object_to_json_string (NULL);
-			if (object != NULL)
-				value_json = json_object_new_string (object);
-			value_string = json_object_to_json_string (value_json);
+			key_node = json_node_new (JSON_NODE_NULL);
+			key_string = json_to_string (key_node, FALSE);
+			if (object == NULL) {
+				value_node = json_node_new (JSON_NODE_NULL);
+			} else {
+				value_node = json_node_new (JSON_NODE_VALUE);
+				json_node_set_string (value_node, object);
+			}
+			value_string = json_to_string (value_node, FALSE);
 			decsync_set_entry (priv->decsync, path, 2, key_string, value_string);
-			json_object_put (value_json);
+			json_node_free (key_node);
+			g_free (key_string);
+			json_node_free (value_node);
+			g_free (value_string);
 
 			g_free (object);
 		}
@@ -3217,8 +3242,9 @@ e_cal_backend_decsync_receive_objects_with_decsync (ECalBackendSync *backend,
 	ECalComponent *comp;
 	ECalBackendDecsyncTzidData tzdata;
 	GError *err = NULL;
-	const gchar *path[2], *key_string, *value_string;
-	json_object *value_json = NULL;
+	const gchar *path[2];
+	JsonNode *key_node, *value_node;
+	gchar *key_string, *value_string;
 
 	cbfile = E_CAL_BACKEND_DECSYNC (backend);
 	priv = cbfile->priv;
@@ -3524,12 +3550,20 @@ e_cal_backend_decsync_receive_objects_with_decsync (ECalBackendSync *backend,
 
 				path[0] = "resources";
 				path[1] = uid;
-				key_string = json_object_to_json_string (NULL);
-				if (object != NULL)
-					value_json = json_object_new_string (object);
-				value_string = json_object_to_json_string (value_json);
+				key_node = json_node_new (JSON_NODE_NULL);
+				key_string = json_to_string (key_node, FALSE);
+				if (object == NULL) {
+					value_node = json_node_new (JSON_NODE_NULL);
+				} else {
+					value_node = json_node_new (JSON_NODE_VALUE);
+					json_node_set_string (value_node, object);
+				}
+				value_string = json_to_string (value_node, FALSE);
 				decsync_set_entry (priv->decsync, path, 2, key_string, value_string);
-				json_object_put (value_json);
+				json_node_free (key_node);
+				g_free (key_string);
+				json_node_free (value_node);
+				g_free (value_string);
 
 				g_free (object);
 			}
@@ -3808,23 +3842,37 @@ infoListener (const gchar **path, int len, const char *datetime, const char *key
 {
 	Extra *extra;
 	const gchar *info;
-	json_object *key, *value;
+	JsonNode *key_node, *value_node;
+	GError *error = NULL;
 
 	extra = (Extra*)extra_void;
-	key = json_tokener_parse (key_string);
-	value = json_tokener_parse (value_string);
-	info = json_object_get_string (key);
-	if (strcmp (info, "deleted") == 0) {
-		if (json_object_get_boolean (value) == TRUE) {
+	key_node = json_from_string (key_string, &error);
+	if (error != NULL) {
+		g_warning ("Invalid JSON for info key: %s", key_string);
+		g_error_free (error);
+		return;
+	}
+	value_node = json_from_string (value_string, &error);
+	if (error != NULL) {
+		g_warning ("Invalid JSON for info value: %s", value_string);
+		json_node_free (key_node);
+		g_error_free (error);
+		return;
+	}
+	info = json_node_get_string (key_node);
+	if (g_strcmp0 (info, "deleted") == 0) {
+		if (json_node_get_boolean (value_node) == TRUE) {
 			deleteCal (extra);
 		}
-	} else if (strcmp (info, "name") == 0) {
-		updateName(extra, json_object_get_string (value));
-	} else if (strcmp (info, "color") == 0) {
-		updateColor(extra, json_object_get_string (value));
+	} else if (g_strcmp0 (info, "name") == 0) {
+		updateName(extra, json_node_get_string (value_node));
+	} else if (g_strcmp0 (info, "color") == 0) {
+		updateColor(extra, json_node_get_string (value_node));
 	} else {
 		g_warning ("Unknown info key: %s", info);
 	}
+	json_node_free (key_node);
+	json_node_free (value_node);
 }
 
 static void
@@ -3832,21 +3880,36 @@ resourcesListener (const gchar **path, int len, const char *datetime, const char
 {
 	Extra *extra;
 	const gchar *uid, *ical;
-	json_object *value;
+	JsonNode *key_node, *value_node;
+	GError *error = NULL;
 
 	extra = (Extra*)extra_void;
-	value = json_tokener_parse (value_string);
+	key_node = json_from_string (key_string, &error);
+	if (error != NULL) {
+		g_warning ("Invalid JSON for info key: %s", key_string);
+		g_error_free (error);
+		return;
+	}
+	value_node = json_from_string (value_string, &error);
+	if (error != NULL) {
+		g_warning ("Invalid JSON for info value: %s", value_string);
+		json_node_free (key_node);
+		g_error_free (error);
+		return;
+	}
 	if (len != 1) {
 		g_warning ("Invalid resources path size %i", len);
 		return;
 	}
 	uid = path[0];
-	if (value == NULL) {
+	if (json_node_is_null (value_node)) {
 		removeEvent(uid, extra);
 	} else {
-		ical = json_object_get_string (value);
+		ical = json_node_get_string (value_node);
 		updateEvent(uid, ical, extra);
 	}
+	json_node_free (key_node);
+	json_node_free (value_node);
 }
 
 static gboolean

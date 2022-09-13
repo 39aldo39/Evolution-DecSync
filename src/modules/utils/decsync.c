@@ -17,7 +17,6 @@
  */
 
 #include "decsync.h"
-#include <json.h>
 #include <libdecsync.h>
 
 typedef struct _Context Context;
@@ -49,47 +48,65 @@ config_decsync_context_free (Context *context)
 static gchar *
 getInfo (const gchar *decsyncDir, const gchar *syncType, const gchar *collection, const gchar *name, const gchar *fallback)
 {
-	json_object *key, *value;
 	bool deleted;
-	const gchar *key_string;
-	gchar value_string[256], *result;
+	JsonNode *key_node, *value_node;
+	gchar *key_string, value_string[256], *result;
+	GError *error = NULL;
 
-	key = json_object_new_string ("deleted");
-	key_string = json_object_to_json_string (key);
+	key_node = json_node_new (JSON_NODE_VALUE);
+	json_node_set_string (key_node, "deleted");
+	key_string = json_to_string (key_node, FALSE);
 	decsync_get_static_info (decsyncDir, syncType, collection, key_string, value_string, 256);
-	value = json_tokener_parse (value_string);
-	json_object_put (key);
-	deleted = value != NULL && json_object_get_boolean (value);
-	json_object_put (value);
+	json_node_free (key_node);
+	g_free (key_string);
+	value_node = json_from_string (value_string, &error);
+	if (error != NULL) {
+		g_warning ("Invalid JSON for static info 'deleted': %s", value_string);
+		g_error_free (error);
+		return NULL;
+	}
+	deleted = !json_node_is_null (value_node) && json_node_get_boolean (value_node);
+	json_node_free (value_node);
 	if (deleted)
 		return NULL;
 
-	key = json_object_new_string (name);
-	key_string = json_object_to_json_string (key);
+	key_node = json_node_new (JSON_NODE_VALUE);
+	json_node_set_string (key_node, name);
+	key_string = json_to_string (key_node, FALSE);
 	decsync_get_static_info (decsyncDir, syncType, collection, key_string, value_string, 256);
-	value = json_tokener_parse (value_string);
-	json_object_put (key);
-	result = g_strdup (value == NULL ? fallback : json_object_get_string (value));
-	json_object_put (value);
+	json_node_free (key_node);
+	g_free (key_string);
+	value_node = json_from_string (value_string, &error);
+	if (error != NULL) {
+		g_warning ("Invalid JSON for static info '%s': %s", name, value_string);
+		g_error_free (error);
+		return NULL;
+	}
+	result = g_strdup (json_node_is_null (value_node) ? fallback : json_node_get_string (value_node));
+	json_node_free (value_node);
 	return result;
 }
 
 static void
-setInfoEntry (const gchar *decsyncDir, const gchar *syncType, const gchar *collection, const gchar *name, json_object *value)
+setInfoEntry (const gchar *decsyncDir, const gchar *syncType, const gchar *collection, const gchar *name, JsonNode *value_node)
 {
 	Decsync decsync;
-	const gchar *path[1], *key_string, *value_string;
+	const gchar *path[1];
 	gchar ownAppId[256];
-	json_object *key;
+	JsonNode *key_node;
+	gchar *key_string, *value_string;
 
 	decsync_get_app_id ("Evolution", ownAppId, 256);
 	decsync_new (&decsync, decsyncDir, syncType, collection, ownAppId);
 	path[0] = "info";
-	key = json_object_new_string (name);
-	key_string = json_object_to_json_string (key);
-	value_string = json_object_to_json_string (value);
+	key_node = json_node_new (JSON_NODE_VALUE);
+	json_node_set_string (key_node, name);
+	key_string = json_to_string (key_node, FALSE);
+	value_string = json_to_string (value_node, FALSE);
 	decsync_set_entry (decsync, path, 1, key_string, value_string);
-	json_object_put (key);
+	json_node_free (key_node);
+	g_free (key_string);
+	g_free (value_string);
 	decsync_free (decsync);
 }
 
@@ -97,12 +114,13 @@ static gchar *
 createCollection (const gchar *decsyncDir, const gchar *syncType, const gchar *name)
 {
 	gchar *collection;
-	json_object *value;
+	JsonNode *value_node;
 
 	collection = g_strdup_printf ("colID%05d", rand () % 100000);
-	value = json_object_new_string (name);
-	setInfoEntry(decsyncDir, syncType, collection, "name", value);
-	json_object_put (value);
+	value_node = json_node_new (JSON_NODE_VALUE);
+	json_node_set_string (value_node, name);
+	setInfoEntry(decsyncDir, syncType, collection, "name", value_node);
+	json_node_free (value_node);
 	return collection;
 }
 
@@ -310,7 +328,7 @@ config_decsync_collection_rename_cb (GtkButton *button, Context *context)
 	GtkWidget *dialog, *container, *widget;
 	gpointer parent;
 	gint position;
-	json_object *value;
+	JsonNode *value_node;
 
 	config = e_source_config_backend_get_config (context->backend);
 	extension_name = E_SOURCE_EXTENSION_DECSYNC_BACKEND;
@@ -342,9 +360,10 @@ config_decsync_collection_rename_cb (GtkButton *button, Context *context)
 		name = gtk_entry_get_text (GTK_ENTRY (widget));
 		if (name != NULL && *name != '\0' && g_strcmp0 (name, name_old)) {
 			dir = e_source_decsync_get_decsync_dir (E_SOURCE_DECSYNC (extension));
-			value = json_object_new_string (name);
-			setInfoEntry (dir, context->sync_type, collection, "name", value);
-			json_object_put (value);
+			value_node = json_node_new (JSON_NODE_VALUE);
+			json_node_set_string (value_node, name);
+			setInfoEntry (dir, context->sync_type, collection, "name", value_node);
+			json_node_free (value_node);
 			gtk_combo_box_text_remove (context->collection_combo_box, position);
 			gtk_combo_box_text_insert (context->collection_combo_box, position, collection, name);
 			gtk_combo_box_set_active_id (GTK_COMBO_BOX (context->collection_combo_box), collection);
@@ -363,7 +382,7 @@ config_decsync_collection_delete_cb (GtkButton *button, Context *context)
 	GtkWidget *dialog;
 	gpointer parent;
 	gint position;
-	json_object *value;
+	JsonNode *value_node;
 
 	config = e_source_config_backend_get_config (context->backend);
 	extension_name = E_SOURCE_EXTENSION_DECSYNC_BACKEND;
@@ -388,9 +407,10 @@ config_decsync_collection_delete_cb (GtkButton *button, Context *context)
 	g_free (title);
 
 	if (gtk_dialog_run (GTK_DIALOG (dialog)) == GTK_RESPONSE_YES) {
-		value = json_object_new_boolean (TRUE);
-		setInfoEntry (dir, context->sync_type, collection, "deleted", value);
-		json_object_put (value);
+		value_node = json_node_new (JSON_NODE_VALUE);
+		json_node_set_boolean (value_node, TRUE);
+		setInfoEntry (dir, context->sync_type, collection, "deleted", value_node);
+		json_node_free (value_node);
 		position = gtk_combo_box_get_active (GTK_COMBO_BOX (context->collection_combo_box));
 		gtk_combo_box_text_remove (context->collection_combo_box, position);
 	}
@@ -543,7 +563,7 @@ config_decsync_commit_changes (ESourceConfigBackend *backend, ESource *scratch_s
 	Context *context;
 	const gchar *uid, *extension_name, *decsync_dir, *collection, *old_appid, *new_color;
 	gchar new_appid[256], *old_color;
-	json_object *value;
+	JsonNode *value_node;
 
 	uid = e_source_get_uid (scratch_source);
 	context = g_object_get_data (G_OBJECT (backend), uid);
@@ -573,9 +593,10 @@ config_decsync_commit_changes (ESourceConfigBackend *backend, ESource *scratch_s
 		old_color = getInfo (decsync_dir, context->sync_type, collection, "color", NULL);
 
 		if (g_strcmp0 (new_color, old_color)) {
-			value = json_object_new_string (new_color);
-			setInfoEntry (decsync_dir, context->sync_type, collection, "color", value);
-			json_object_put (value);
+			value_node = json_node_new (JSON_NODE_VALUE);
+			json_node_set_string (value_node, new_color);
+			setInfoEntry (decsync_dir, context->sync_type, collection, "color", value_node);
+			json_node_free (value_node);
 		}
 
 		g_free (old_color);

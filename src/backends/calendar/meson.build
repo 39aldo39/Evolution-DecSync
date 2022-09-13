@@ -14,7 +14,6 @@ shared_library(
     '../../e-source/e-source-decsync.h'
   ],
   dependencies: [
-    jsonc,
     libdecsync,
     libedatacal
   ],
