@@ -9,6 +9,7 @@ shared_library(
   ],
   name_prefix: '',
   dependencies: [
+    json_glib,
     libdecsync,
     libedatacal,
     evolutionshell

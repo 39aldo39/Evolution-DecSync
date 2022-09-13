@@ -28,6 +28,7 @@ sudo apt install \
 	meson \
 	ninja-build \
 	pkg-config \
+	libjson-glib-dev \
 	libebook1.2-dev \
 	libedata-book1.2-dev \
 	libedata-cal2.0-dev \
@@ -41,6 +42,7 @@ sudo dnf install \
 	git \
 	gcc \
 	meson \
+	json-glib-devel \
 	evolution-data-server-devel \
 	evolution-devel
 ```
@@ -52,6 +54,7 @@ sudo pacman -S \
 	cmake \
 	meson \
 	ninja \
+	json-glib \
 	evolution-data-server \
 	evolution
 ```
