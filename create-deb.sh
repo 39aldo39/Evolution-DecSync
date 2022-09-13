@@ -6,4 +6,4 @@ DESTDIR="$(pwd)/deb" ninja -C build install
 mkdir -p deb/DEBIAN
 cp debian-control deb/DEBIAN/control
 
-dpkg-deb --build deb evolution-decsync.deb
+dpkg-deb -Zxz --build deb evolution-decsync.deb
