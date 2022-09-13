@@ -65,7 +65,7 @@ meson build
 sudo ninja -C build install
 ```
 
-Note: the master branch does not work for Evolution 3.30 or older. For those, use the `evolution-3.30` branch instead. For Evolution 3.38 or higher, use the `evolution-3.38` branch.
+Note: the master branch does not work for older versions of Evolution. For those, use the `evolution-3.40` branch, or similar, instead.
 
 ### Further steps
 
