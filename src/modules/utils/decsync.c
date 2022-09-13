@@ -17,6 +17,7 @@
  */
 
 #include "decsync.h"
+#include <json-glib/json-glib.h>
 #include <libdecsync.h>
 
 typedef struct _Context Context;

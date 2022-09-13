@@ -34,6 +34,7 @@
 
 #include <libedataserver/libedataserver.h>
 #include <e-source/e-source-decsync.h>
+#include <json-glib/json-glib.h>
 #include <libdecsync.h>
 
 #include "e-cal-backend-decsync-events.h"

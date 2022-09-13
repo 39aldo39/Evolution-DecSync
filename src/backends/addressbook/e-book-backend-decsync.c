@@ -41,6 +41,7 @@
 #include <glib/gi18n-lib.h>
 
 #include <e-source/e-source-decsync.h>
+#include <json-glib/json-glib.h>
 #include <libdecsync.h>
 
 #include "e-book-backend-decsync.h"
